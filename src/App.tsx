@@ -80,7 +80,7 @@ export default function App() {
       <footer className="site-footer">
         <div className="footer-brand">
           <span className="brand-symbol">R<span>e</span></span>
-          <p><strong>ReAuthor · 重写权</strong><br />学生自己的 AI 写作特征诊断台。规则引擎 rules-v0.1，开源、可复核、不上传文本。</p>
+          <p><strong>ReAuthor · 重写权</strong><br />学生自己的 AI 写作特征诊断台。多通道交叉验证 + 公开校准数据，开源、可复核、不上传文本。</p>
         </div>
         <div className="footer-links">
           <a href="https://github.com/Jasper1-Coder/reauthor-writing-lab" target="_blank" rel="noreferrer"><Github size={17} /> 源码与评分常量</a>

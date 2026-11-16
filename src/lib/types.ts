@@ -36,6 +36,41 @@ export interface Metric {
   evidence: string
 }
 
+export type CrossVerdict = 'aligned' | 'mixed' | 'divergent'
+export type DetectorId = 'lexicon' | 'rhythm' | 'repetition' | 'specificity' | 'probability'
+
+export interface DetectorResult {
+  id: DetectorId
+  name: string
+  englishName: string
+  family: string
+  score: number
+  detail: string
+}
+
+export interface CrossValidation {
+  detectors: DetectorResult[]
+  spread: number
+  median: number
+  verdict: CrossVerdict
+  verdictLabel: string
+  note: string
+}
+
+export type ProbabilityStatus = 'idle' | 'loading' | 'running' | 'done' | 'error'
+
+export interface ProbabilityChannelResult {
+  status: ProbabilityStatus
+  message: string
+  modelName?: string
+  tokens?: number
+  perplexity?: number
+  burstiness?: number
+  score?: number
+  formula?: string
+  error?: string
+}
+
 export interface TextStats {
   characters: number
   chineseCharacters: number
@@ -58,6 +93,7 @@ export interface AnalysisReport {
   evidenceLabel: string
   isSampleSufficient: boolean
   metrics: Metric[]
+  crossValidation: CrossValidation
   sentenceAnalyses: SentenceAnalysis[]
   limitations: string[]
 }

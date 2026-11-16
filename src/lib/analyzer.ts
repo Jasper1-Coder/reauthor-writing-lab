@@ -1,7 +1,9 @@
 import { findPatternHits } from './patterns'
+import { evaluateSpread } from './crosscheck'
 import type {
   AnalysisOptions,
   AnalysisReport,
+  CrossValidation,
   Language,
   Metric,
   PatternHit,
@@ -10,7 +12,7 @@ import type {
   TextStats,
 } from './types'
 
-const VERSION = 'rules-v0.1.0'
+const VERSION = 'rules-v0.2.0'
 const STOP_WORDS = new Set([
   'the', 'a', 'an', 'and', 'or', 'but', 'if', 'of', 'to', 'in', 'on', 'for', 'with', 'as', 'by',
   'is', 'are', 'was', 'were', 'be', 'been', 'being', 'it', 'its', 'this', 'that', 'these', 'those',
@@ -264,6 +266,52 @@ export function analyzeText(text: string, options: AnalysisOptions): AnalysisRep
     },
   ]
 
+  const detectors = [
+    {
+      id: 'lexicon' as const,
+      name: '词表通道',
+      englishName: 'Lexicon',
+      family: '固定正则词表：模板连接词、套话与抽象评价',
+      score: round(formulaicScore * 0.55 + abstractionScore * 0.45),
+      detail: `套话命中 ${formulaicHits.length} 处，抽象评价命中 ${genericHits.length} 处。`,
+    },
+    {
+      id: 'rhythm' as const,
+      name: '节奏通道',
+      englishName: 'Rhythm',
+      family: '纯统计量：句长变异系数与重复开头，不读任何词表',
+      score: rhythmScore,
+      detail: `句长变异系数 ${coefficientOfVariation.toFixed(2)}。`,
+    },
+    {
+      id: 'repetition' as const,
+      name: '重复通道',
+      englishName: 'Repetition',
+      family: '纯统计量：n-gram 重复率与词汇多样性，不含语义',
+      score: repetitionScore,
+      detail: `词汇多样性 ${lexicalDiversity.toFixed(2)}，重复片段占比 ${round(repetitionData.ratio * 100)}%。`,
+    },
+    {
+      id: 'specificity' as const,
+      name: '证据通道',
+      englishName: 'Evidence',
+      family: '可核查线索密度：数字、来源、案例、个人观察',
+      score: lowSpecificityScore,
+      detail: `${evidenceSentenceCount}/${sentences.length} 句含可核查线索。`,
+    },
+  ]
+  const spreadVerdict = evaluateSpread(detectors.map((detector) => detector.score))
+  const crossValidation: CrossValidation = {
+    detectors,
+    ...spreadVerdict,
+    note:
+      spreadVerdict.verdict === 'aligned'
+        ? '四条独立特征族给出相近读数，结论相对稳定，但仍不是 AI 生成概率。'
+        : spreadVerdict.verdict === 'mixed'
+          ? '各特征族读数不一致。这可能意味着文本风格混合（部分模板化 + 部分个人化），请以逐句批注为准，不要引用单一总分。'
+          : '特征族之间严重分歧。此时任何检测网站给出的精确百分比（包括本站与商业检测器）都应被怀疑——请回到逐句证据自行判断。',
+  }
+
   const score = round(metrics.reduce((sum, metric) => sum + metric.score * metric.weight, 0))
   const relevantUnits = language === 'en' ? enCount : language === 'zh' ? zhCount : zhCount + enCount * 2
   const targetUnits = language === 'en' ? 180 : 400
@@ -286,6 +334,7 @@ export function analyzeText(text: string, options: AnalysisOptions): AnalysisRep
     evidenceLabel,
     isSampleSufficient,
     metrics,
+    crossValidation,
     sentenceAnalyses: buildSentenceAnalyses(sentences, language, averageLength, repetitionData.repeated),
     limitations: [
       '本版本是透明规则引擎，不是经过代表性人写作/AI 文本语料校准的分类模型，分数不能解释为 AI 生成概率。',

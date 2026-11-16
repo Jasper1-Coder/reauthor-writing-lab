@@ -4,3 +4,7 @@ coverage
 *.local
 .DS_Store
 *.tsbuildinfo
+
+# raw dataset is downloadable, only the sampled subset is committed
+calibration/raw/
+.workbuddy/

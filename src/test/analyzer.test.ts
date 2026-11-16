@@ -56,4 +56,19 @@ describe('transparent heuristic scoring', () => {
     expect(first.score).toBe(second.score)
     expect(first.metrics).toEqual(second.metrics)
   })
+
+  it('reports four independent detectors with a consistent cross-validation verdict', () => {
+    const report = analyzeText(SAMPLE_ZH, options)
+    const cross = report.crossValidation
+    expect(cross.detectors.map((detector) => detector.id)).toEqual([
+      'lexicon',
+      'rhythm',
+      'repetition',
+      'specificity',
+    ])
+    const scores = cross.detectors.map((detector) => detector.score)
+    expect(cross.spread).toBe(Math.max(...scores) - Math.min(...scores))
+    expect(['aligned', 'mixed', 'divergent']).toContain(cross.verdict)
+    expect(cross.note.length).toBeGreaterThan(10)
+  })
 })

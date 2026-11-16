@@ -1,0 +1,56 @@
+{
+  "generatedAt": "2026-11-16",
+  "dataset": {
+    "name": "HC3 中文子集（Hello-SimpleAI/HC3：open_qa / wiki_csai / finance / medicine）",
+    "aiModelEra": "2023 年初 ChatGPT（gpt-3.5 一代）",
+    "sampleCount": 480,
+    "humanCount": 240,
+    "aiCount": 240,
+    "sampling": "每领域每类最多 60 条等距抽样；答案 ≥120 字符，截断至 3000 字符"
+  },
+  "engineVersion": "rules-v0.2.0",
+  "results": {
+    "rocAuc": 0.515,
+    "flagThreshold": 55,
+    "falsePositiveRate": 0,
+    "falseNegativeRate": 1,
+    "balancedAccuracy": 0.5,
+    "humanMedian": 24,
+    "aiMedian": 24
+  },
+  "sufficiency": {
+    "humanSufficientRatio": 0,
+    "aiSufficientRatio": 0
+  },
+  "byDomain": [
+    {
+      "domain": "open_qa",
+      "humanMedian": 29,
+      "aiMedian": 21,
+      "count": 120
+    },
+    {
+      "domain": "wiki_csai",
+      "humanMedian": 24,
+      "aiMedian": 25,
+      "count": 120
+    },
+    {
+      "domain": "finance",
+      "humanMedian": 22,
+      "aiMedian": 24,
+      "count": 120
+    },
+    {
+      "domain": "medicine",
+      "humanMedian": 24,
+      "aiMedian": 24,
+      "count": 120
+    }
+  ],
+  "disclosures": [
+    "AI 样本来自 2023 年初 ChatGPT，对 2026 年模型与洗稿文本的分辨力未在本报告中声称。",
+    "阈值 55 是本站\"模板化特征较集中\"的分级线，不是司法或学术处分意义上的判定线。",
+    "本表只描述本引擎在本数据集上的统计行为，不构成对任何具体文本的作者判断。"
+  ]
+}

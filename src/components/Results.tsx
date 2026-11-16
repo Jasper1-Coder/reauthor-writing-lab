@@ -7,15 +7,21 @@ import {
   Clipboard,
   FileCheck2,
   Flag,
+  FlaskConical,
   Info,
   Lightbulb,
   ListFilter,
+  LoaderCircle,
   Printer,
   Quote,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react'
 import { buildMarkdownReport, downloadMarkdown, getRevisionPlan } from '../lib/report'
-import type { AnalysisReport, SentenceAnalysis } from '../lib/types'
+import { evaluateSpread } from '../lib/crosscheck'
+import { PROBABILITY_FORMULA, PROBABILITY_MODEL_LABEL, runProbabilityChannel } from '../lib/probability'
+import calibrationData from '../data/calibration.json'
+import type { AnalysisReport, ProbabilityChannelResult, SentenceAnalysis } from '../lib/types'
 
 interface ResultsProps {
   report: AnalysisReport
@@ -69,6 +75,7 @@ function SentenceRow({ sentence, expanded, onToggle }: { sentence: SentenceAnaly
 export function Results({ report, onToast }: ResultsProps) {
   const [tab, setTab] = useState<Tab>('sentences')
   const [filter, setFilter] = useState<Filter>('all')
+  const [prob, setProb] = useState<ProbabilityChannelResult>({ status: 'idle', message: '' })
   const [expandedId, setExpandedId] = useState<number | null>(report.sentenceAnalyses.find((sentence) => sentence.level === 'priority')?.id ?? 1)
   const revisionPlan = getRevisionPlan(report)
   const circumference = 2 * Math.PI * 76
@@ -87,6 +94,40 @@ export function Results({ report, onToast }: ResultsProps) {
     })
     return [...unique.values()].slice(0, 10)
   }, [report])
+
+  const crossCheck = useMemo(() => {
+    const base = report.crossValidation
+    if (prob.status !== 'done' || typeof prob.score !== 'number') return base
+    const detectors = [
+      ...base.detectors,
+      {
+        id: 'probability' as const,
+        name: '神经通道（实验）',
+        englishName: 'Neural (beta)',
+        family: '浏览器本地 token 概率：困惑度 + 突发度，Qwen2.5-0.5B 量化版',
+        score: prob.score,
+        detail: prob.message,
+      },
+    ]
+    const spread = evaluateSpread(detectors.map((detector) => detector.score))
+    return {
+      ...base,
+      detectors,
+      ...spread,
+      note:
+        spread.verdict === 'aligned'
+          ? '所有通道（含神经通道）读数接近，但请注意：本校准显示表层规则通道在真实数据上接近随机，神经通道为实验性未校准。结论请以逐句证据为准。'
+          : spread.verdict === 'mixed'
+            ? '加入神经通道后分歧扩大。这正说明"AI 率"没有唯一真值——请对比逐句证据，而不是挑一个你喜欢的数字。'
+            : '通道严重分歧。任何检测网站此时给出的精确百分比（包括本站）都不应被引用。',
+    }
+  }, [report, prob])
+
+  const launchProbability = async () => {
+    if (prob.status === 'loading' || prob.status === 'running') return
+    const result = await runProbabilityChannel(report.originalText, (update) => setProb(update))
+    setProb(result)
+  }
 
   const copyReport = async () => {
     try {
@@ -157,6 +198,15 @@ export function Results({ report, onToast }: ResultsProps) {
         </div>
       )}
 
+      <div className="calibration-strip" role="note">
+        <FlaskConical size={19} />
+        <p>
+          <strong>自我校准披露：</strong>在 HC3 中文数据集（{calibrationData.dataset.sampleCount} 篇真人 / AI 问答）上，本引擎区分真人与 AI 的
+          AUC 仅为 <strong>{calibrationData.results.rocAuc}</strong>——接近随机。所以我们称它为"写作特征反馈工具"，<strong>不是检测器</strong>。
+          完整混淆数据见下方方法页。商业检测器敢公布自己的这个数字吗？
+        </p>
+      </div>
+
       <div className="metrics-grid">
         {report.metrics.map((metric, index) => (
           <article className="metric-card" key={metric.id}>
@@ -169,6 +219,77 @@ export function Results({ report, onToast }: ResultsProps) {
             <div className="metric-evidence"><FileCheck2 size={14} /> {metric.evidence}</div>
           </article>
         ))}
+      </div>
+
+      <div className="crosscheck-panel">
+        <div className="crosscheck-heading">
+          <span className="eyebrow">CROSS-CHECK · 交叉验证</span>
+          <h3>同一篇文本，{crossCheck.detectors.length} 条相互独立的证据链。</h3>
+          <p>
+            每个通道只依赖一类特征，互不共享计算。读数一致，结论才相对可靠；读数分歧，说明"AI 率"没有唯一真值——
+            Pangram 给你的 100 分、别的网站给你的 87 分、以及本站的分数，都应放进这个框架里怀疑。
+          </p>
+        </div>
+        <div className="crosscheck-grid">
+          {crossCheck.detectors.map((detector) => (
+            <article className="crosscheck-card" key={detector.id}>
+              <div className="crosscheck-score"><strong>{detector.score}</strong><span>/100</span></div>
+              <h4>{detector.name}</h4>
+              <p className="crosscheck-en">{detector.englishName}</p>
+              <div className="crosscheck-bar"><i style={{ width: `${detector.score}%` }} /></div>
+              <p className="crosscheck-family">{detector.family}</p>
+              <p className="crosscheck-detail">{detector.detail}</p>
+            </article>
+          ))}
+          <article className="crosscheck-card neural-card">
+            <div className="crosscheck-score">
+              {prob.status === 'done' && typeof prob.score === 'number'
+                ? <><strong>{prob.score}</strong><span>/100</span></>
+                : <strong className="neural-na">—</strong>}
+            </div>
+            <h4>神经通道（实验）</h4>
+            <p className="crosscheck-en">Neural · token 概率</p>
+            {prob.status === 'done' && <div className="crosscheck-bar"><i style={{ width: `${prob.score}%` }} /></div>}
+            {prob.status === 'idle' && (
+              <div className="neural-launch">
+                <p>{PROBABILITY_MODEL_LABEL}</p>
+                <button type="button" className="neural-button" onClick={launchProbability}>
+                  <Sparkles size={15} /> 启动本地模型分析
+                </button>
+                <small>下载约 350 MB（国内镜像），之后浏览器缓存；全程本地推理，文本不上传。</small>
+              </div>
+            )}
+            {(prob.status === 'loading' || prob.status === 'running') && (
+              <div className="neural-launch">
+                <p className="neural-progress"><LoaderCircle size={15} className="spin" /> {prob.message}</p>
+              </div>
+            )}
+            {prob.status === 'error' && (
+              <div className="neural-launch">
+                <p className="neural-error"><AlertCircle size={15} /> {prob.message}</p>
+                <small>{prob.error}</small>
+                <button type="button" className="neural-button" onClick={launchProbability}>重试</button>
+              </div>
+            )}
+            {prob.status === 'done' && <p className="crosscheck-family">困惑度 {prob.perplexity}，突发度 {prob.burstiness}（{prob.tokens} tokens）</p>}
+            {prob.status === 'done' && <p className="crosscheck-detail">换算公式公开：{PROBABILITY_FORMULA}</p>}
+          </article>
+        </div>
+        <div className={`crosscheck-verdict verdict-${crossCheck.verdict}`}>
+          <div className="spread-visual">
+            <span className="spread-label">通道分歧度（最大 − 最小）</span>
+            <div className="spread-track">
+              <i style={{ width: `${Math.min(100, crossCheck.spread)}%` }} />
+              <em className="spread-marker" style={{ left: '25%' }} data-label="一致≤25" />
+              <em className="spread-marker" style={{ left: '45%' }} data-label="分歧≤45" />
+            </div>
+            <strong className="spread-value">{crossCheck.spread}</strong>
+          </div>
+          <div className="verdict-text">
+            <strong>{crossCheck.verdictLabel}</strong>
+            <p>{crossCheck.note}</p>
+          </div>
+        </div>
       </div>
 
       <div className="diagnosis-workspace">
