@@ -1,21 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowDownToLine,
   Clipboard,
-  ExternalLink,
   Gavel,
   Plus,
   Printer,
-  ShieldQuestion,
   Trash2,
 } from 'lucide-react'
-import { DEFENSE_EVIDENCE, evaluateDisagreement } from '../data/defenseEvidence'
-import { buildDefenseDocument, type PlatformRecord } from '../lib/defense'
-import { downloadText } from '../lib/report'
-import type { AnalysisReport } from '../lib/types'
+import { buildAppealPacket, ONE_PAGER_LINES, type AppealPacket } from '../lib/appealPacket'
+import type { PlatformRecord } from '../lib/defense'
+import { buildAppealLetterMarkdown, downloadText } from '../lib/report'
+import type { AnalysisReport, RetrievalChannelResult } from '../lib/types'
 
 interface DefenseKitProps {
   report: AnalysisReport
+  retrieval?: RetrievalChannelResult
   onToast: (message: string) => void
 }
 
@@ -32,12 +31,45 @@ function loadRecords(): PlatformRecord[] {
   }
 }
 
-export function DefenseKit({ report, onToast }: DefenseKitProps) {
+/** 功能点 4 · 给老师的一页纸：3 条本文证据 + 2 句可念话术；降级时只显示降级说明 */
+function OnePager({ packet }: { packet: AppealPacket }) {
+  if (packet.degraded) {
+    return (
+      <section className="defense-onepager" aria-label="给老师的一页纸">
+        <h3>给老师的一页纸 · 本案三条最强证据</h3>
+        <p className="defense-degraded-notice">{packet.degradedNotice}</p>
+      </section>
+    )
+  }
+
+  const { disagreement, crossDomain, retrieval, rewrite } = packet
+  const evidence1 = `本站对本文跑出 ${disagreement.channels.length} 条独立读数（${disagreement.channels.map((c) => `${c.name} ${c.score}`).join('、')}），通道分歧度为 ${disagreement.spread}。`
+  const evidence2 = `本站校准模型在真实学术摘要跨域测试中，绝对分数仅 ${crossDomain.calibratedScoreMin}–${crossDomain.calibratedScoreMax}、阈值 50 灵敏度 ${Math.round(crossDomain.at50Sensitivity * 100)}%，可复现：${crossDomain.reproduceCommand}。`
+  const evidence3 = retrieval.available && typeof retrieval.coverage === 'number'
+    ? `检索通道覆盖率为 ${Math.round(retrieval.coverage * 100)}%，匹配度偏低，读数仅作定性参考。`
+    : `改写前后对照记录 ${rewrite.hasEntries ? `${rewrite.entries.length} 句` : '尚未附上'}。`
+
+  return (
+    <section className="defense-onepager" aria-label="给老师的一页纸">
+      <h3>给老师的一页纸 · 本案三条最强证据</h3>
+      <ol>
+        <li>{evidence1}</li>
+        <li>{evidence2}</li>
+        <li>{evidence3}</li>
+      </ol>
+      <div className="onepager-lines">
+        <p>{ONE_PAGER_LINES[0]}</p>
+        <p>{ONE_PAGER_LINES[1]}</p>
+      </div>
+    </section>
+  )
+}
+
+export function DefenseKit({ report, retrieval, onToast }: DefenseKitProps) {
   const [records, setRecords] = useState<PlatformRecord[]>(loadRecords)
   const [platform, setPlatform] = useState('')
   const [score, setScore] = useState('')
   const [date, setDate] = useState('')
-  const [showProcessForm, setShowProcessForm] = useState(false)
   const [timeline, setTimeline] = useState('')
   const [evidenceNotes, setEvidenceNotes] = useState('')
   const [aiUsage, setAiUsage] = useState('')
@@ -46,7 +78,18 @@ export function DefenseKit({ report, onToast }: DefenseKitProps) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
   }, [records])
 
-  const verdict = evaluateDisagreement(records.map((record) => record.score))
+  // 已算好的本报告证据自动带入；学生只需补充平台信息与写作过程自述
+  const packet = useMemo(
+    () => buildAppealPacket(report, retrieval, {
+      platform,
+      score,
+      platformRecords: records,
+      timeline,
+      evidenceNotes,
+      aiUsage,
+    }),
+    [report, retrieval, platform, score, records, timeline, evidenceNotes, aiUsage],
+  )
 
   const addRecord = () => {
     const trimmed = platform.trim()
@@ -63,59 +106,57 @@ export function DefenseKit({ report, onToast }: DefenseKitProps) {
   }
 
   const generateDocument = () => {
-    const markdown = buildDefenseDocument(report, records, verdict, { timeline, evidenceNotes, aiUsage })
-    downloadText(markdown, `reauthor-defense-kit-${new Date().toISOString().slice(0, 10)}.md`)
-    onToast('申诉参考材料已下载，请先如实填写第一部分再使用')
+    if (packet.degraded) return
+    const markdown = buildAppealLetterMarkdown(packet)
+    downloadText(markdown, `reauthor-appeal-letter-${new Date().toISOString().slice(0, 10)}.md`)
+    onToast('申诉信已下载，请确认写作过程自述如实填写后再提交')
   }
 
   const copyDocument = async () => {
-    const markdown = buildDefenseDocument(report, records, verdict, { timeline, evidenceNotes, aiUsage })
+    if (packet.degraded) return
+    const markdown = buildAppealLetterMarkdown(packet)
     try {
       await navigator.clipboard.writeText(markdown)
-      onToast('申诉材料已复制到剪贴板')
+      onToast('申诉信已复制到剪贴板，请确认写作过程自述如实填写后再提交')
     } catch {
       onToast('复制失败，请改用下载或打印')
     }
   }
+
+  const crossDomain = packet.crossDomain
 
   return (
     <div className="defense-panel" role="tabpanel" id="panel-defense" aria-labelledby="tab-defense">
       <div className="defense-intro">
         <Gavel size={22} />
         <div>
-          <h3>被别的平台判了高 AI 率？这里帮你组织质疑，不是组织作弊。</h3>
-          <p>
-            打分数仗你赢不了——本站自己的校准都接近随机。你能赢的是<b>质疑权</b>：公开研究证明这类检测器系统性地冤枉规整写作，
-            公开报道证明各平台结论互相矛盾。下面三步，生成一份拿着证据说话的申诉参考材料。
-          </p>
+          <h3>一案一证：把本报告已算好的证据，装成学生能直接交给老师的申诉信。</h3>
+          <p>下面四步自动带入本报告的真实读数，你只需补充只有你本人知道的写作过程。所有信息请如实填写。</p>
         </div>
       </div>
 
-      <section className="defense-step">
-        <header><span>STEP 1</span><h4>核对公开证据：这些质疑每一条都有出处</h4></header>
-        <div className="defense-evidence-list">
-          {DEFENSE_EVIDENCE.map((item) => (
-            <article className="defense-evidence" key={item.id}>
-              <div className="evidence-head">
-                <strong className="evidence-stat">{item.stat}</strong>
-                <span className="evidence-year">{item.year}</span>
-              </div>
-              <h5>{item.title}</h5>
-              <p>{item.summary}</p>
-              <blockquote>“{item.quote}”</blockquote>
-              <div className="evidence-uses">
-                <span><ShieldQuestion size={13} /> 何时用：{item.useFor}</span>
-                <a href={item.sourceUrl} target="_blank" rel="noreferrer">原始出处 <ExternalLink size={12} /></a>
-              </div>
-            </article>
-          ))}
+      {/* 常驻伦理红线横幅（步骤之前） */}
+      <div className="defense-ethics-banner" role="note">{packet.ethicsNotice}</div>
+
+      {/* 功能点 4 · 给老师的一页纸 */}
+      <OnePager packet={packet} />
+
+      {packet.degraded && (
+        <div className="defense-degraded-banner" role="alert">
+          <p><strong>{packet.degradedNotice}</strong></p>
+          <p>补齐字数与句数后可生成可用的申诉信。</p>
         </div>
-      </section>
+      )}
 
       <section className="defense-step">
-        <header><span>STEP 2</span><h4>录入其他平台给你的检测值，自动生成分歧论证</h4></header>
+        <header><span>STEP 1</span><h4>判决概况</h4></header>
+        <p className="defense-note">以下为本报告已算好的读数，无需你填写。</p>
+        <div className="site-readings">
+          <span>本站写作特征指数：<strong>{packet.verdict.siteReading}</strong>（{packet.verdict.siteLevelLabel}）</span>
+          <span>本站校准模型通道读数：<strong>{packet.verdict.siteCalibratedScore}</strong></span>
+        </div>
         <div className="record-form">
-          <input value={platform} onChange={(event) => setPlatform(event.target.value)} placeholder="平台名（如：知网 / 维普 / PaperPass）" aria-label="平台名称" />
+          <input value={platform} onChange={(event) => setPlatform(event.target.value)} placeholder="被判平台名（如：知网 / 维普 / PaperPass）" aria-label="平台名称" />
           <input value={score} onChange={(event) => setScore(event.target.value)} placeholder="AI 率 %" inputMode="numeric" aria-label="检测百分比" />
           <input value={date} onChange={(event) => setDate(event.target.value)} placeholder="日期（可选）" aria-label="检测日期" />
           <button type="button" onClick={addRecord}><Plus size={15} /> 录入</button>
@@ -132,38 +173,66 @@ export function DefenseKit({ report, onToast }: DefenseKitProps) {
                 </button>
               </div>
             ))}
-            <div className={`record-verdict verdict-${verdict.level}`}>
-              <strong>{verdict.label}</strong>
-              <p>{verdict.argument}</p>
-            </div>
           </div>
         )}
       </section>
 
       <section className="defense-step">
-        <header><span>STEP 3</span><h4>生成申诉参考材料（Markdown，可编辑后提交）</h4></header>
+        <header><span>STEP 2</span><h4>多通道分歧</h4></header>
         <p className="defense-note">
-          文档包含五部分：写作过程陈述模板（<b>必须如实填写</b>）· 七条公开证据 · 平台分歧记录 · 本报告逐句解释 · 申诉请求建议。
-        </p>
-        <button type="button" className="defense-toggle" onClick={() => setShowProcessForm(!showProcessForm)}>
-          {showProcessForm ? '收起过程材料填写' : '可选：现在就填写写作过程（也可生成后再填）'}
-        </button>
-        {showProcessForm && (
-          <div className="process-form">
-            <label>写作时间线<textarea value={timeline} onChange={(event) => setTimeline(event.target.value)} rows={3} placeholder="例：10/2 定提纲；10/15 初稿；10/28 按导师意见重写第三章……" /></label>
-            <label>修改痕迹与过程证据<textarea value={evidenceNotes} onChange={(event) => setEvidenceNotes(event.target.value)} rows={3} placeholder="例：在线文档版本历史截图、文献笔记、导师沟通记录……" /></label>
-            <label>AI 工具使用声明<textarea value={aiUsage} onChange={(event) => setAiUsage(event.target.value)} rows={2} placeholder="如实填写：未使用，或说明在哪些环节用了什么。" /></label>
-          </div>
-        )}
-        <div className="defense-actions">
-          <button type="button" className="defense-primary" onClick={generateDocument}><ArrowDownToLine size={15} /> 下载申诉材料</button>
-          <button type="button" onClick={copyDocument}><Clipboard size={15} /> 复制内容</button>
-          <button type="button" onClick={() => window.print()}><Printer size={15} /> 打印</button>
-        </div>
-        <p className="defense-ethics">
-          红线提醒：这份材料的力量来自<b>真实</b>。用伪造的过程材料去对抗检测器，你只是在用另一种不诚实替换算法的不诚实——而且会被一次面谈戳穿。
+          本站对本文跑出 {packet.disagreement.channels.length} 条独立读数：{packet.disagreement.channels.map((c) => `${c.name} ${c.score}`).join('、')}，通道分歧度为 {packet.disagreement.spread}。{packet.disagreement.caveat}
         </p>
       </section>
+
+      <section className="defense-step">
+        <header><span>STEP 3</span><h4>跨域阈值</h4></header>
+        <p className="defense-note">
+          本站校准模型训练于问答语料，在真实学术摘要跨域测试中绝对分数塌缩至 {crossDomain.calibratedScoreMin}–{crossDomain.calibratedScoreMax}、阈值 50 灵敏度为 {Math.round(crossDomain.at50Sensitivity * 100)}%（可复现：`{crossDomain.reproduceCommand}`）。
+        </p>
+      </section>
+
+      <section className="defense-step">
+        <header><span>STEP 4</span><h4>写作过程自述</h4></header>
+        <p className="defense-note">以下三段必须如实填写，拒绝代写与虚构；未填写时导出稿仅保留占位引导，不会替你编造过程。</p>
+        <div className="process-form">
+          <label>
+            写作时间线（必须如实，拒绝代写与虚构）
+            <textarea
+              value={timeline}
+              onChange={(event) => setTimeline(event.target.value)}
+              rows={3}
+              placeholder={packet.selfStatement.isPlaceholder ? packet.selfStatement.placeholder.timeline : undefined}
+            />
+          </label>
+          <label>
+            修改痕迹与过程证据（必须如实，拒绝代写与虚构）
+            <textarea
+              value={evidenceNotes}
+              onChange={(event) => setEvidenceNotes(event.target.value)}
+              rows={3}
+              placeholder={packet.selfStatement.isPlaceholder ? packet.selfStatement.placeholder.evidenceNotes : undefined}
+            />
+          </label>
+          <label>
+            AI 工具使用声明（必须如实，拒绝代写与虚构）
+            <textarea
+              value={aiUsage}
+              onChange={(event) => setAiUsage(event.target.value)}
+              rows={2}
+              placeholder={packet.selfStatement.isPlaceholder ? packet.selfStatement.placeholder.aiUsage : undefined}
+            />
+          </label>
+        </div>
+      </section>
+
+      <div className="defense-actions">
+        <button type="button" className="defense-primary" disabled={packet.degraded} onClick={generateDocument}><ArrowDownToLine size={15} /> 下载申诉信</button>
+        <button type="button" disabled={packet.degraded} onClick={copyDocument}><Clipboard size={15} /> 复制内容</button>
+        <button type="button" onClick={() => window.print()}><Printer size={15} /> 打印</button>
+      </div>
+      <p className="defense-ethics">
+        红线提醒：这份材料的力量来自<b>真实</b>。用伪造的过程材料去对抗检测器，你只是在用另一种不诚实替换算法的不诚实——而且会被一次面谈戳穿。
+      </p>
     </div>
   )
 }

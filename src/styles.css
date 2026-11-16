@@ -729,6 +729,44 @@ a { color: inherit; }
 .defense-intro h3 { font-size: 19px; margin-bottom: 8px; }
 .defense-intro p { font-size: 14px; color: var(--ink-soft); line-height: 1.75; }
 
+/* v0.7.1: 一案一证 · 常驻红线横幅 / 给老师的一页纸 / 降级提示 */
+.defense-ethics-banner {
+  border: 1px solid var(--orange);
+  border-left: 5px solid var(--orange);
+  background: var(--paper-raised);
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--ink);
+}
+.defense-onepager {
+  border: 1px solid var(--line-strong);
+  border-left: 5px solid var(--green);
+  background: var(--paper-raised);
+  padding: 22px 26px;
+}
+.defense-onepager h3 { font-size: 17px; margin-bottom: 14px; }
+.defense-onepager ol { margin: 0 0 16px 20px; padding: 0; }
+.defense-onepager ol li { font-size: 13.5px; line-height: 1.75; color: var(--ink); margin-bottom: 8px; }
+.onepager-lines { border-top: 1px solid var(--line); padding-top: 14px; }
+.onepager-lines p { font-size: 13.5px; line-height: 1.75; color: var(--ink-soft); margin-bottom: 8px; }
+.onepager-lines p:last-child { margin-bottom: 0; }
+.defense-degraded-banner {
+  border: 1px solid var(--red);
+  border-left: 5px solid var(--red);
+  background: var(--paper-raised);
+  padding: 16px 20px;
+  margin-top: 18px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+}
+.defense-degraded-banner strong { color: var(--red); }
+.defense-degraded-notice { font-size: 13.5px; line-height: 1.7; color: var(--red); }
+.site-readings { display: flex; flex-wrap: wrap; gap: 10px 26px; margin-bottom: 18px; font-size: 13.5px; color: var(--ink-soft); }
+.site-readings strong { font-family: var(--mono); font-size: 16px; color: var(--green-deep); }
+
 .defense-step { margin-top: 34px; }
 .defense-step > header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
 .defense-step > header span {
@@ -849,6 +887,7 @@ a { color: inherit; }
 .defense-actions button:hover { border-color: var(--ink); }
 .defense-primary { background: var(--ink) !important; color: var(--paper) !important; border-color: var(--ink) !important; }
 .defense-primary:hover { background: var(--green-deep) !important; border-color: var(--green-deep) !important; }
+.defense-actions button:disabled { opacity: 0.45; cursor: not-allowed; }
 .defense-ethics {
   margin-top: 16px;
   padding: 14px 18px;

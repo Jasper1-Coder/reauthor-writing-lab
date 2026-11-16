@@ -1,3 +1,4 @@
+import { RETRIEVAL_UNAVAILABLE, REWRITE_PLACEHOLDER, type AppealPacket } from './appealPacket'
 import type { AnalysisReport, Metric } from './types'
 
 export interface RevisionItem {
@@ -160,4 +161,137 @@ export function downloadText(markdown: string, filename: string) {
   anchor.click()
   anchor.remove()
   URL.revokeObjectURL(url)
+}
+
+/**
+ * 把申诉证据包导出为一份已填充的中文申诉 / 答辩信（Markdown）。
+ * 复用既有 buildRewriteComparisonMarkdown 的逐句口径与 downloadText / 剪贴板路径，
+ * 不新增导出机制；样本不足时只产出降级说明，绝不给出可用申诉信。
+ */
+export function buildAppealLetterMarkdown(packet: AppealPacket): string {
+  if (packet.degraded) {
+    return ['# 规则观察说明（样本不足）', '', packet.degradedNotice, '', packet.ethicsNotice].join('\n')
+  }
+
+  const date = new Date().toLocaleDateString('zh-CN')
+  const { verdict, disagreement, crossDomain, retrieval, rewrite, selfStatement } = packet
+  const lines: string[] = [
+    '# AIGC 检测结果申诉信（本案证据版）',
+    '',
+    `> 生成日期：${date} · 由 ReAuthor（开源工具）辅助整理`,
+    '',
+    `> ${packet.ethicsNotice}`,
+    '',
+    '---',
+    '',
+    '## 一、判决概况',
+    '',
+    `- 被判平台：${verdict.judgedPlatform || '（待填写）'}`,
+    `- 被判分数：${verdict.judgedScore === null ? '（待填写）' : String(verdict.judgedScore)}`,
+    `- 本站写作特征指数：${verdict.siteReading}（${verdict.siteLevelLabel}）`,
+    `- 本站校准模型通道读数：${verdict.siteCalibratedScore}`,
+    '',
+  ]
+
+  if (verdict.platformRecords.length) {
+    lines.push(
+      '| 检测平台 | AI 率 | 检测日期 |',
+      '| --- | ---: | --- |',
+      ...verdict.platformRecords.map((record) => `| ${record.platform} | ${record.score}% | ${record.date || '—'} |`),
+      '',
+    )
+  } else {
+    lines.push('（尚未录入其他平台的检测结果。）', '')
+  }
+
+  lines.push(
+    '## 二、本文多通道分歧实证',
+    '',
+    ...disagreement.channels.map((channel) => `- ${channel.name}：${channel.score}`),
+    '',
+    `通道分歧度：${disagreement.spread}（${disagreement.verdictLabel}）`,
+    '',
+    disagreement.caveat,
+    '',
+    '## 三、跨域阈值失效说明',
+    '',
+    `本站校准模型训练于 ${crossDomain.trainDomain}，在 ${crossDomain.testDomain} 跨域测试中绝对分数塌缩至 ${crossDomain.calibratedScoreMin}–${crossDomain.calibratedScoreMax}、阈值 50 灵敏度 ${Math.round(crossDomain.at50Sensitivity * 100)}%（可复现：\`${crossDomain.reproduceCommand}\`）。`,
+    '',
+    `校准模型留出折 AUC ${crossDomain.calibratedAuc}、跨域特异度 ${crossDomain.at50Specificity}；规则引擎跨域 AUC ${crossDomain.ruleAuc}。`,
+    '',
+    '## 四、检索匹配度 / 最近邻',
+    '',
+  )
+
+  if (retrieval.available) {
+    lines.push(
+      `- 检索匹配度：${retrieval.score ?? '—'}`,
+      `- 语料覆盖率：${retrieval.coverage ?? '—'}`,
+      `- 语料规模：${retrieval.corpusSize ?? '—'} 段`,
+    )
+    if (retrieval.nearestNeighbors.length) {
+      lines.push('', '最近邻摘录（最多 3 条）：')
+      retrieval.nearestNeighbors.forEach((neighbor, index) => {
+        lines.push(`${index + 1}. [${neighbor.label === 1 ? 'AI 生成' : '真人撰写'}｜相似度 ${neighbor.similarity}] ${neighbor.excerpt.slice(0, 120)}`)
+      })
+    }
+    lines.push('', retrieval.note, '')
+  } else {
+    lines.push(RETRIEVAL_UNAVAILABLE, '')
+  }
+
+  lines.push('## 五、改写前后对照', '')
+  if (rewrite.hasEntries) {
+    rewrite.entries.forEach((entry) => {
+      const delta = entry.draftScore - entry.originalScore
+      lines.push(
+        `### 第 ${entry.sentenceId} 句 · ${entry.originalScore} → ${entry.draftScore}（${delta > 0 ? '+' : ''}${delta}）`,
+        '',
+        `**原文**：${entry.original}`,
+        '',
+        `**我的改写**：${entry.draft}`,
+        '',
+        `**我为什么这样改**：${entry.reason || '（未填写）'}`,
+        '',
+      )
+    })
+  } else {
+    lines.push(REWRITE_PLACEHOLDER, '')
+  }
+
+  lines.push(
+    '## 六、写作过程自述（请本人如实填写）',
+    '',
+    '**1. 写作时间线**',
+    '',
+    selfStatement.isPlaceholder ? selfStatement.placeholder.timeline : selfStatement.timeline,
+    '',
+    '**2. 修改痕迹与过程证据**',
+    '',
+    selfStatement.isPlaceholder ? selfStatement.placeholder.evidenceNotes : selfStatement.evidenceNotes,
+    '',
+    '**3. AI 工具使用声明**',
+    '',
+    selfStatement.isPlaceholder ? selfStatement.placeholder.aiUsage : selfStatement.aiUsage,
+    '',
+    '## 七、脚注（本站公开证据 / 可复现管线）',
+    '',
+    '- crossDomainValidation.json（本站跨域验证真实数字，生成于 2026-11-16）',
+    '- calibratedModel.json（留出折 AUC 0.930±0.007，协议见 meta.protocol）',
+    '- scripts/crossdomain-test.ts（运行：npx tsx scripts/crossdomain-test.ts）',
+    '- scripts/train-model.ts（可复现训练管线）',
+    '',
+    '## 八、申诉请求（按学校流程调整）',
+    '',
+    '1. **请求人工复核**：援引海南多所高校"机器初检、人工复核"双保险、广州大学"人工复核 + 委员会研判"等制度先例，请求对 AIGC 检测结果进行人工复核，而非以算法分数直接定性。',
+    '2. **请求检测方披露校准数据**：要求说明所用检测系统在中文（或相应语种）学术文本上的误报率、漏报率及校准数据集。参照：OpenAI 因"低准确率"于 2023 年 7 月下线自家检测器；范德堡大学以可靠性为由停用 Turnitin AI 检测。',
+    '3. **提交写作过程材料**：随本文档第一部分提交版本历史、草稿、笔记等过程证据。',
+    '4. **质疑单一百分比**：援引本文档第二、三部分证据，说明任何单一平台、单一时点的 AI 率均不具备稳定证明力。',
+    '',
+    '---',
+    '',
+    packet.ethicsNotice,
+  )
+
+  return lines.join('\n')
 }

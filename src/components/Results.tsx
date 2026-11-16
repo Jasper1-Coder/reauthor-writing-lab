@@ -435,7 +435,7 @@ export function Results({ report, onToast, onUseFullText }: ResultsProps) {
           </div>
         )}
 
-        {tab === 'defense' && <DefenseKit report={report} onToast={onToast} />}
+        {tab === 'defense' && <DefenseKit report={report} retrieval={retr} onToast={onToast} />}
       </div>
     </section>
   )

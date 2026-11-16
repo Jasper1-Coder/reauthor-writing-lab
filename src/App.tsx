@@ -21,7 +21,11 @@ export default function App() {
   useEffect(() => {
     if (!report) return
     const timer = window.setTimeout(() => {
-      document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      const resultsEl = document.getElementById('results')
+      // jsdom / 部分 WebView 未实现 scrollIntoView；缺失时静默跳过，避免未捕获异常打断测试或页面
+      if (resultsEl && typeof resultsEl.scrollIntoView === 'function') {
+        resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
     }, 80)
     // 组件卸载或报告刷新时清除定时器，避免卸载后访问已销毁的 document。
     return () => window.clearTimeout(timer)
