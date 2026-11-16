@@ -93,7 +93,7 @@ function perturbRhythm(text: string, language: 'zh' | 'en'): string {
     .replace(/, (?:which|that|allowing|creating|leaving) /g, '. This ')
 }
 
-function rewrite(text: string, language: 'zh' | 'en'): string {
+export function rewrite(text: string, language: 'zh' | 'en'): string {
   return perturbRhythm(swapPhrases(text, language), language)
 }
 

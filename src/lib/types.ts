@@ -37,7 +37,7 @@ export interface Metric {
 }
 
 export type CrossVerdict = 'aligned' | 'mixed' | 'divergent'
-export type DetectorId = 'lexicon' | 'rhythm' | 'repetition' | 'specificity' | 'probability'
+export type DetectorId = 'lexicon' | 'rhythm' | 'repetition' | 'specificity' | 'calibrated' | 'probability'
 
 export interface DetectorResult {
   id: DetectorId
@@ -94,6 +94,7 @@ export interface AnalysisReport {
   isSampleSufficient: boolean
   sufficiencyHint: string
   metrics: Metric[]
+  calibratedScore: number
   crossValidation: CrossValidation
   sentenceAnalyses: SentenceAnalysis[]
   limitations: string[]

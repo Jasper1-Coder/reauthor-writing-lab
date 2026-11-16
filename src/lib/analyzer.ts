@@ -1,5 +1,6 @@
 import { findPatternHits } from './patterns'
 import { evaluateSpread } from './crosscheck'
+import { CALIBRATED_MODEL_INFO, scoreCalibrated } from './calibrated'
 import type {
   AnalysisOptions,
   AnalysisReport,
@@ -12,7 +13,7 @@ import type {
   TextStats,
 } from './types'
 
-const VERSION = 'rules-v0.2.0'
+const VERSION = 'engine-v0.5.0'
 const STOP_WORDS = new Set([
   'the', 'a', 'an', 'and', 'or', 'but', 'if', 'of', 'to', 'in', 'on', 'for', 'with', 'as', 'by',
   'is', 'are', 'was', 'were', 'be', 'been', 'being', 'it', 'its', 'this', 'that', 'these', 'those',
@@ -266,6 +267,7 @@ export function analyzeText(text: string, options: AnalysisOptions): AnalysisRep
     },
   ]
 
+  const calibrated = scoreCalibrated(normalized)
   const detectors = [
     {
       id: 'lexicon' as const,
@@ -299,6 +301,14 @@ export function analyzeText(text: string, options: AnalysisOptions): AnalysisRep
       score: lowSpecificityScore,
       detail: `${evidenceSentenceCount}/${sentences.length} 句含可核查线索。`,
     },
+    {
+      id: 'calibrated' as const,
+      name: '校准模型通道',
+      englishName: 'Calibrated LR',
+      family: `HC3-Chinese 训练的逻辑回归，留出折 AUC ${CALIBRATED_MODEL_INFO.cvAuc}±${CALIBRATED_MODEL_INFO.aucStd}`,
+      score: calibrated.score,
+      detail: `校准概率 ${(calibrated.probability * 100).toFixed(1)}%（8 特征逻辑回归，系数全公开；训练域为问答文本，论文场景可能偏移）。`,
+    },
   ]
   const spreadVerdict = evaluateSpread(detectors.map((detector) => detector.score))
   const crossValidation: CrossValidation = {
@@ -306,7 +316,7 @@ export function analyzeText(text: string, options: AnalysisOptions): AnalysisRep
     ...spreadVerdict,
     note:
       spreadVerdict.verdict === 'aligned'
-        ? '四条独立特征族给出相近读数，结论相对稳定，但仍不是 AI 生成概率。'
+        ? '五条通道（四条特征族 + 校准模型）给出相近读数，结论相对稳定。校准模型读数可解释为"与训练集中 AI 文本特征分布的相似概率"，仍不是作者身份判定。'
         : spreadVerdict.verdict === 'mixed'
           ? '各特征族读数不一致。这可能意味着文本风格混合（部分模板化 + 部分个人化），请以逐句批注为准，不要引用单一总分。'
           : '特征族之间严重分歧。此时任何检测网站给出的精确百分比（包括本站与商业检测器）都应被怀疑——请回到逐句证据自行判断。',
@@ -345,10 +355,11 @@ export function analyzeText(text: string, options: AnalysisOptions): AnalysisRep
     isSampleSufficient,
     sufficiencyHint,
     metrics,
+    calibratedScore: calibrated.score,
     crossValidation,
     sentenceAnalyses: buildSentenceAnalyses(sentences, language, averageLength, repetitionData.repeated),
     limitations: [
-      '本版本是透明规则引擎，不是经过代表性人写作/AI 文本语料校准的分类模型，分数不能解释为 AI 生成概率。',
+      '手调规则部分未经过语料校准（HC3 上 AUC 仅 0.515），校准模型通道在 HC3-Chinese 留出折上 AUC 0.927，但训练域是问答文本而非学术论文，跨领域表现可能偏移。',
       '非母语写作、规范化学术文体、翻译文本与短文本可能出现类似特征，不得据此推定作者身份或学术不端。',
       '检测结果应服务于作者自我修改与师生对话，不应作为处罚、处分或提交判定的唯一依据。',
     ],

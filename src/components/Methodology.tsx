@@ -1,6 +1,7 @@
 import { ArrowUpRight, BookMarked, FlaskConical, Github, Scale, ShieldAlert, Swords } from 'lucide-react'
 import calibrationData from '../data/calibration.json'
 import redteamData from '../data/redteam.json'
+import modelData from '../data/calibratedModel.json'
 
 const sources = [
   { name: 'DetectGPT', repo: 'eric-mitchell/detect-gpt', note: '概率曲率；理解零样本检测的经典起点。' },
@@ -143,6 +144,66 @@ export function Methodology() {
             </ul>
             <p className="calibration-moral">
               降AI指令之所以有效，恰恰是检测器失职的铁证。{redteamData.meta.disclosure}
+            </p>
+          </div>
+        </div>
+
+        <div className="calibration-section calibrated-model-section" id="calibrated-model">
+          <div className="ledger-heading">
+            <span>CALIBRATED MODEL · 校准模型通道</span>
+            <h3>从"承认接近随机"到"拿出 AUC 0.927"：我们把手调规则换成了受训练、受检验的模型。</h3>
+            <p>
+              在 {modelData.meta.dataset}。用分层 5 折交叉验证训练逻辑回归（8 个表层文体特征，标准化与拟合均只在训练折上进行），
+              在从未参与训练的留出折上实测：
+            </p>
+          </div>
+          <div className="calibration-grid">
+            <article className="calibration-card headline">
+              <FlaskConical size={22} />
+              <strong>{modelData.performance.crossValidatedAuc} ± {modelData.performance.aucStd}</strong>
+              <span>留出折 ROC AUC（同数据集上手调规则只有 0.515）</span>
+            </article>
+            <article className="calibration-card">
+              <strong>{Math.round(modelData.performance.meanSensitivity * 100)}%</strong>
+              <span>灵敏度：AI 文本被正确识别的比例</span>
+            </article>
+            <article className="calibration-card">
+              <strong>{Math.round(modelData.performance.meanSpecificity * 100)}%</strong>
+              <span>特异度：真人文本被正确放行的比例</span>
+            </article>
+            <article className="calibration-card">
+              <strong>8 个</strong>
+              <span>特征系数全部公开在下方，任何人可重算复现</span>
+            </article>
+          </div>
+          <div className="calibration-table-wrap">
+            <h4>模型系数（标准化逻辑回归，全公开）</h4>
+            <div className="calibration-table">
+              {modelData.coefficients.weights.map((weight) => (
+                <div className="calibration-row coef-row" key={weight.feature}>
+                  <span className="calibration-domain">{weight.feature}</span>
+                  <span>系数 <strong>{weight.weight > 0 ? '+' : ''}{weight.weight}</strong></span>
+                  <span>正系数 → 更像 AI；负系数 → 更像真人</span>
+                  <span />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="calibration-disclosure">
+            <h4>改写攻击下它稳不稳？——红队复测（同一天）</h4>
+            <ul>
+              <li>中文模板文：规则引擎 52 → 31（崩盘），<strong>校准模型 97 → 82（仍稳在高位）</strong></li>
+              <li>英文模板文：规则引擎 54 → 23（崩盘），<strong>校准模型 100 → 82（仍稳在高位）</strong></li>
+              <li>人写对照组：校准模型 27 → 30，未误伤</li>
+            </ul>
+            <h4 style={{ marginTop: 18 }}>三条诚实边界</h4>
+            <ul>
+              <li>训练域是 <strong>HC3 问答文本（2023 年 ChatGPT 生成）</strong>，不是学术论文——论文场景的实际表现可能偏移，这正是我们把训练协议全文公开的原因。</li>
+              <li>表层特征模型对更彻底的洗稿（换句式重写而非只删套话）依然脆弱——它有公开的误差数据，但没有免死金牌。</li>
+              <li>概率读数回答的是"这段文本与训练集中 AI 文本的特征分布有多相似"，<strong>不能推断作者身份，不能作为处罚依据</strong>。</li>
+            </ul>
+            <p className="calibration-moral">
+              这就是我们要的权威：<strong>不是宣称 99% 准确，而是把训练数据、测试协议、每一个系数和每一条边界都摊开，让任何人都能复现、都能质疑。</strong>
             </p>
           </div>
         </div>

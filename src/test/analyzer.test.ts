@@ -75,7 +75,7 @@ describe('transparent heuristic scoring', () => {
     expect(first.metrics).toEqual(second.metrics)
   })
 
-  it('reports four independent detectors with a consistent cross-validation verdict', () => {
+  it('reports five channels (four feature families + calibrated model)', () => {
     const report = analyzeText(SAMPLE_ZH, options)
     const cross = report.crossValidation
     expect(cross.detectors.map((detector) => detector.id)).toEqual([
@@ -83,7 +83,10 @@ describe('transparent heuristic scoring', () => {
       'rhythm',
       'repetition',
       'specificity',
+      'calibrated',
     ])
+    expect(report.calibratedScore).toBeGreaterThanOrEqual(0)
+    expect(report.calibratedScore).toBeLessThanOrEqual(100)
     const scores = cross.detectors.map((detector) => detector.score)
     expect(cross.spread).toBe(Math.max(...scores) - Math.min(...scores))
     expect(['aligned', 'mixed', 'divergent']).toContain(cross.verdict)

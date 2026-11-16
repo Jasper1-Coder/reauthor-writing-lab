@@ -860,3 +860,8 @@ a { color: inherit; }
 @media print {
   .record-form, .defense-toggle, .defense-actions, .process-form { display: none !important; }
 }
+
+/* ============ v0.5: 校准模型区 ============ */
+.calibrated-strip { border-left-color: var(--green); }
+.calibrated-strip svg { color: var(--green); }
+.coef-row { grid-template-columns: 1.4fr 0.8fr 1.6fr 0.6fr; }

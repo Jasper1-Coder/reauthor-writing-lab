@@ -22,6 +22,7 @@ import { DefenseKit } from './DefenseKit'
 import { evaluateSpread } from '../lib/crosscheck'
 import { PROBABILITY_FORMULA, PROBABILITY_MODEL_LABEL, runProbabilityChannel } from '../lib/probability'
 import calibrationData from '../data/calibration.json'
+import { CALIBRATED_MODEL_INFO as modelInfo } from '../lib/calibrated'
 import type { AnalysisReport, ProbabilityChannelResult, SentenceAnalysis } from '../lib/types'
 
 interface ResultsProps {
@@ -205,12 +206,20 @@ export function Results({ report, onToast }: ResultsProps) {
         </div>
       )}
 
+      <div className="calibration-strip calibrated-strip" role="note">
+        <FlaskConical size={19} />
+        <p>
+          <strong>校准模型读数：{report.calibratedScore} / 100</strong>——这是 v0.5 在 HC3-Chinese 上以分层 5 折交叉验证训练的逻辑回归通道
+          （留出折 AUC <strong>{modelInfo.cvAuc} ± {modelInfo.aucStd}</strong>，灵敏度 {Math.round(modelInfo.sensitivity * 100)}% / 特异度 {Math.round(modelInfo.specificity * 100)}%，8 个特征系数全公开）。
+          上方主分数来自手调规则引擎（HC3 上 AUC {calibrationData.results.rocAuc}，接近随机，仅供参考）；<strong>校准通道才是有公开误差数据的读数</strong>。
+          训练域为问答文本，学术论文场景可能偏移；两者都不构成作者身份判定。
+        </p>
+      </div>
       <div className="calibration-strip" role="note">
         <FlaskConical size={19} />
         <p>
-          <strong>自我校准披露：</strong>在 HC3 中文数据集（{calibrationData.dataset.sampleCount} 篇真人 / AI 问答）上，本引擎区分真人与 AI 的
-          AUC 仅为 <strong>{calibrationData.results.rocAuc}</strong>——接近随机。所以我们称它为"写作特征反馈工具"，<strong>不是检测器</strong>。
-          完整混淆数据见下方方法页。商业检测器敢公布自己的这个数字吗？
+          <strong>规则引擎自我校准披露：</strong>在 HC3 中文数据集（{calibrationData.dataset.sampleCount} 篇真人 / AI 问答）上，手调规则区分真人与 AI 的
+          AUC 仅为 <strong>{calibrationData.results.rocAuc}</strong>——接近随机。我们保留它只是因为它的逐句解释能力，而非判别力。完整混淆数据见方法页。
         </p>
       </div>
 

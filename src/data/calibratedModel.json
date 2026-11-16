@@ -1,0 +1,105 @@
+{
+  "meta": {
+    "generatedAt": "2026-11-16",
+    "model": "逻辑回归（L2 正则 0.01，梯度下降 600 轮，学习率 0.15）",
+    "protocol": "分层 5 折交叉验证：标准化参数与训练均只在训练折上进行，测试折完全不参与任何拟合",
+    "dataset": "HC3-Chinese（baike / finance / law / medicine / open_qa / psychology 六领域，每领域每类上限 500 篇）；纳入门槛 中文≥200字 或 英文≥140词（训练协议与线上 400 字弃权线不同，特此披露），实际纳入 3826 篇",
+    "features": [
+      "lengthCV",
+      "meanSentenceLength",
+      "ttr",
+      "trigramRepeat",
+      "punctuationDensity",
+      "formulaicDensity",
+      "genericDensity",
+      "paragraphCount"
+    ]
+  },
+  "performance": {
+    "crossValidatedAuc": 0.93,
+    "aucStd": 0.007,
+    "inSampleAuc": 0.931,
+    "meanSensitivity": 0.811,
+    "meanSpecificity": 0.899,
+    "meanAccuracy": 0.839
+  },
+  "coefficients": {
+    "bias": 1.0653,
+    "weights": [
+      {
+        "feature": "lengthCV",
+        "weight": -1.0145
+      },
+      {
+        "feature": "meanSentenceLength",
+        "weight": -1.2872
+      },
+      {
+        "feature": "ttr",
+        "weight": 0.2259
+      },
+      {
+        "feature": "trigramRepeat",
+        "weight": 1.4654
+      },
+      {
+        "feature": "punctuationDensity",
+        "weight": -0.7487
+      },
+      {
+        "feature": "formulaicDensity",
+        "weight": 0.1896
+      },
+      {
+        "feature": "genericDensity",
+        "weight": -0.073
+      },
+      {
+        "feature": "paragraphCount",
+        "weight": -0.3358
+      }
+    ],
+    "means": [
+      {
+        "feature": "lengthCV",
+        "mean": 0.3986,
+        "std": 0.1833
+      },
+      {
+        "feature": "meanSentenceLength",
+        "mean": 38.5881,
+        "std": 31.8088
+      },
+      {
+        "feature": "ttr",
+        "mean": 0.465,
+        "std": 0.0757
+      },
+      {
+        "feature": "trigramRepeat",
+        "mean": 0.107,
+        "std": 0.073
+      },
+      {
+        "feature": "punctuationDensity",
+        "mean": 3.0589,
+        "std": 2.6575
+      },
+      {
+        "feature": "formulaicDensity",
+        "mean": 0.0834,
+        "std": 0.2018
+      },
+      {
+        "feature": "genericDensity",
+        "mean": 0.0841,
+        "std": 0.2178
+      },
+      {
+        "feature": "paragraphCount",
+        "mean": 2.8774,
+        "std": 3.2848
+      }
+    ]
+  }
+}
