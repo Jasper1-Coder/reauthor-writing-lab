@@ -1,0 +1,60 @@
+{
+  "meta": {
+    "generatedAt": "2026-11-16",
+    "method": "确定性规则改写（可复现，无随机性、无模型参与）",
+    "tactics": [
+      "T1 套话替换：模板短语换成朴素表达",
+      "T2 枚举拆除：删去序列连接词与平衡句式",
+      "T3 节奏扰动：拆长句以破坏句长均匀性"
+    ],
+    "disclosure": "真实\"降AI指令\"还会编造具体细节（虚构数据/案例）来骗过证据稀缺维度；本测试刻意不伪造事实，测得的是纯句式层改写的影响。",
+    "reference": "战术来源：B站公开流传的\"毕业论文降AI率\"教程类内容（BV1mALH6yEE2，28.5万播放），此处仅取其公开描述的改写思路作为分析对象。"
+  },
+  "cases": [
+    {
+      "id": "zh-template",
+      "name": "中文 · 模板化示例",
+      "isControl": false,
+      "language": "zh",
+      "before": {
+        "score": 52,
+        "level": "人机特征可能并存"
+      },
+      "after": {
+        "score": 31,
+        "level": "人机特征可能并存"
+      },
+      "delta": -21
+    },
+    {
+      "id": "en-template",
+      "name": "English · Template-heavy sample",
+      "isControl": false,
+      "language": "en",
+      "before": {
+        "score": 54,
+        "level": "样本不足 · 暂不判定"
+      },
+      "after": {
+        "score": 23,
+        "level": "样本不足 · 暂不判定"
+      },
+      "delta": -31
+    },
+    {
+      "id": "zh-human-control",
+      "name": "中文 · 调查报告（对照组）",
+      "isControl": true,
+      "language": "zh",
+      "before": {
+        "score": 10,
+        "level": "样本不足 · 暂不判定"
+      },
+      "after": {
+        "score": 10,
+        "level": "样本不足 · 暂不判定"
+      },
+      "delta": 0
+    }
+  ]
+}

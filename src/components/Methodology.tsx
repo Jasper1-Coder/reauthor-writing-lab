@@ -1,5 +1,6 @@
-import { ArrowUpRight, BookMarked, FlaskConical, Github, Scale, ShieldAlert } from 'lucide-react'
+import { ArrowUpRight, BookMarked, FlaskConical, Github, Scale, ShieldAlert, Swords } from 'lucide-react'
 import calibrationData from '../data/calibration.json'
+import redteamData from '../data/redteam.json'
 
 const sources = [
   { name: 'DetectGPT', repo: 'eric-mitchell/detect-gpt', note: '概率曲率；理解零样本检测的经典起点。' },
@@ -91,6 +92,57 @@ export function Methodology() {
               这个 AUC 就是我们要说的话：<strong>任何表层特征检测器都可能接近随机，包括本站。</strong>
               区别在于我们把证据摊开，而商业检测网站把"99% 准确"写在首页。
               所以本站给的是逐句修改证据，而不是一个定罪百分比。
+            </p>
+          </div>
+        </div>
+
+        <div className="calibration-section redteam-section" id="redteam">
+          <div className="ledger-heading">
+            <span>RED TEAM · 对抗性测试</span>
+            <h3>网上流传的"降AI指令"，能把我们的分数打掉多少？我们替你试了。</h3>
+            <p>
+              B 站有 28 万播放的教程教学生用复制粘贴的 prompt"降AI率"（99% 到 0%）。
+              我们没有回避，而是把它的公开战术做成了确定性改写脚本，对自己的引擎发起攻击：
+            </p>
+          </div>
+          <div className="redteam-tactics">
+            {redteamData.meta.tactics.map((tactic) => (
+              <span key={tactic}>{tactic}</span>
+            ))}
+          </div>
+          <div className="redteam-grid">
+            {redteamData.cases.map((item) => (
+              <article className={`redteam-card${item.isControl ? ' control' : ''}`} key={item.id}>
+                <header>
+                  <h4>{item.name}</h4>
+                  <span>{item.isControl ? '对照组 · 未被攻击' : '攻击目标'}</span>
+                </header>
+                <div className="redteam-scores">
+                  <div className="redteam-score before">
+                    <em>{item.before.score}</em>
+                    <span>改写前</span>
+                  </div>
+                  <Swords size={18} aria-hidden="true" />
+                  <div className="redteam-score after">
+                    <em>{item.after.score}</em>
+                    <span>改写后</span>
+                  </div>
+                  <div className={`redteam-delta ${item.delta <= -10 ? 'big-drop' : ''}`}>
+                    {item.delta > 0 ? '+' : ''}{item.delta}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="calibration-disclosure">
+            <h4>这次自曝证明了什么</h4>
+            <ul>
+              <li>只改句式、<strong>不编造任何事实</strong>，模板化文本的特征分就掉了 21–31 分——而真实"降AI指令"还会虚构数据细节，杀伤力更大。</li>
+              <li>对照组（含具体数据与来源的人写文本）纹丝不动——这正是我们建议的修改方向：把论证变成你自己的，比任何洗稿都稳。</li>
+              <li>推广到所有检测器：一个复制粘贴的 prompt 就能让分数 99% 变 0%，说明那个百分比<strong>从来没有在测量真实的东西</strong>。任何只给你一个百分比的网站——商业的或本站——都不该成为处罚依据。</li>
+            </ul>
+            <p className="calibration-moral">
+              降AI指令之所以有效，恰恰是检测器失职的铁证。{redteamData.meta.disclosure}
             </p>
           </div>
         </div>
