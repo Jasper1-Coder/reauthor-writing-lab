@@ -194,7 +194,13 @@ export function Results({ report, onToast }: ResultsProps) {
       {!report.isSampleSufficient && (
         <div className="insufficient-banner" role="alert">
           <AlertCircle size={21} />
-          <div><strong>样本不足，系统已撤回风险定性</strong><p>建议中文达到 400 字、英文达到 180 词，并至少有 6 句。当前分数只用于查看规则如何工作。</p></div>
+          <div>
+            <strong>样本不足，系统已撤回风险定性</strong>
+            <p>
+              判定标准：中文 ≥400 字或英文 ≥180 词，且 ≥6 句（中英混排时任一语言达标即可）。{report.sufficiencyHint}
+              当前分数只用于查看规则如何工作。
+            </p>
+          </div>
         </div>
       )}
 

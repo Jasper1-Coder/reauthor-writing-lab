@@ -92,6 +92,7 @@ export interface AnalysisReport {
   evidenceSufficiency: number
   evidenceLabel: string
   isSampleSufficient: boolean
+  sufficiencyHint: string
   metrics: Metric[]
   crossValidation: CrossValidation
   sentenceAnalyses: SentenceAnalysis[]

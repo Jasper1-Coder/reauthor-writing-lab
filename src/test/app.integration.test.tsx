@@ -31,7 +31,7 @@ describe('App integration (jsdom)', () => {
     expect((analyzeButton as HTMLButtonElement).disabled).toBe(true)
 
     // Load the Chinese sample via the sample button
-    const sampleButton = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('中文 · 模板化'))
+    const sampleButton = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('中文模板'))
     expect(sampleButton).toBeTruthy()
     await act(async () => { sampleButton!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
     expect((container.querySelector('textarea') as HTMLTextAreaElement).value).toBe(SAMPLE_ZH)

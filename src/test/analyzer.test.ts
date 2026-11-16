@@ -36,6 +36,22 @@ describe('transparent heuristic scoring', () => {
     expect(report.isSampleSufficient).toBe(false)
     expect(report.level).toBe('insufficient')
     expect(report.levelLabel).toContain('暂不判定')
+    expect(report.sufficiencyHint).toContain('400')
+  })
+
+  it('accepts mixed-language papers when either language meets its own threshold', () => {
+    const chineseBody = `本研究讨论大模型辅助写作在小组项目中的使用模式。我们跟踪了四个小组的修改历史，发现学生会在方法段落保留模板表达，而在论证部分大幅改写。访谈进一步说明，学生并非随机接受或拒绝生成内容，而是按任务风险做出选择。这个分布特征提示，检测工具按句均匀打分的做法可能与真实使用模式不匹配。`.repeat(4)
+    const mixed = `We tracked four groups of students across eight weeks of coursework. Each group produced 2.3 ChatGPT drafts on average before peer review.\n\n${chineseBody}`
+    const report = analyzeText(mixed, options)
+    expect(report.stats.chineseCharacters).toBeGreaterThanOrEqual(400)
+    expect(report.isSampleSufficient).toBe(true)
+    expect(report.level).not.toBe('insufficient')
+  })
+
+  it('still abstains when a long text has too few sentences', () => {
+    const longOneSentence = `这一段只有一句话但写得非常长。`.repeat(0) + '这句话本身没有句号分隔'.repeat(40)
+    const report = analyzeText(longOneSentence, options)
+    expect(report.isSampleSufficient).toBe(false)
   })
 
   it('uses weights that sum to one', () => {

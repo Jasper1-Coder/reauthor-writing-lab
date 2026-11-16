@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   ArrowRight,
   BookOpen,
@@ -8,11 +8,12 @@ import {
   Languages,
   LoaderCircle,
   ScanText,
-  Sparkles,
+  Upload,
   Trash2,
 } from 'lucide-react'
-import { SAMPLE_EN, SAMPLE_HUMAN_ZH, SAMPLE_ZH } from '../data/samples'
+import { SAMPLE_LIBRARY } from '../data/samples'
 import { analyzeText, splitSentences } from '../lib/analyzer'
+import { extractTextFromFile, isSupportedFile } from '../lib/fileImport'
 import type { AnalysisReport, DocumentType, LanguagePreference } from '../lib/types'
 
 interface AnalyzerProps {
@@ -27,24 +28,53 @@ export function Analyzer({ onAnalyzed, onToast }: AnalyzerProps) {
   const [language, setLanguage] = useState<LanguagePreference>('auto')
   const [documentType, setDocumentType] = useState<DocumentType>('academic')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
   const [stage, setStage] = useState(0)
   const [sampleName, setSampleName] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const stats = useMemo(() => ({
     characters: text.length,
     sentences: splitSentences(text).length,
   }), [text])
 
-  const loadSample = (kind: 'zh' | 'human' | 'en') => {
-    const samples = {
-      zh: { text: SAMPLE_ZH, name: '中文 · 模板化示例', language: 'zh' as LanguagePreference },
-      human: { text: SAMPLE_HUMAN_ZH, name: '中文 · 个人论证示例', language: 'zh' as LanguagePreference },
-      en: { text: SAMPLE_EN, name: 'English · Evidence-rich draft', language: 'en' as LanguagePreference },
+  const loadSample = (id: string) => {
+    const sample = SAMPLE_LIBRARY.find((doc) => doc.id === id)
+    if (!sample) return
+    setText(sample.text)
+    setLanguage(sample.language)
+    setSampleName(sample.name)
+    onToast(`已载入${sample.name}，可直接开始分析`)
+  }
+
+  const handleFile = async (file: File | undefined | null) => {
+    if (!file || isImporting) return
+    if (file.size > 30 * 1024 * 1024) {
+      onToast('文件超过 30MB，请先精简后再上传')
+      return
     }
-    setText(samples[kind].text)
-    setLanguage(samples[kind].language)
-    setSampleName(samples[kind].name)
-    onToast(`已载入${samples[kind].name}，可直接开始分析`)
+    if (!isSupportedFile(file)) {
+      onToast('暂只支持 .txt / .md / .pdf / .docx / .pptx，.doc 请先另存为 .docx')
+      return
+    }
+    setIsImporting(true)
+    try {
+      const result = await extractTextFromFile(file)
+      if (!result.text || result.text.length < 40) {
+        onToast('没有从文件中提取到足够文字：扫描版 PDF 或图片型文档请手动复制粘贴')
+        return
+      }
+      setText(result.text.slice(0, 50000))
+      setSampleName(result.name)
+      if (result.warning) onToast(result.warning)
+      else onToast(`已提取「${result.name}」的文字（${result.text.length.toLocaleString()} 字符），全程本地解析`)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      onToast(`文件解析失败：${detail}`)
+    } finally {
+      setIsImporting(false)
+    }
   }
 
   const runAnalysis = async () => {
@@ -105,17 +135,48 @@ export function Analyzer({ onAnalyzed, onToast }: AnalyzerProps) {
                 <option value="en">English</option>
               </select>
             </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt,.md,.markdown,.pdf,.docx,.pptx"
+              className="sr-only"
+              aria-hidden="true"
+              tabIndex={-1}
+              onChange={(event) => {
+                void handleFile(event.target.files?.[0])
+                event.target.value = ''
+              }}
+            />
+            <button
+              className="icon-button"
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isImporting}
+              aria-label="导入文档文件"
+              title="导入 PDF / Word / PPT / TXT（本地解析）"
+            >
+              {isImporting ? <LoaderCircle className="spin" size={17} /> : <Upload size={17} />}
+            </button>
             <button className="icon-button" type="button" onClick={clearText} disabled={!text} aria-label="清空原稿" title="清空原稿">
               <Trash2 size={17} />
             </button>
           </div>
         </div>
 
-        <div className="textarea-wrap">
+        <div
+          className={`textarea-wrap ${isDragging ? 'dragging' : ''}`}
+          onDragOver={(event) => { event.preventDefault(); setIsDragging(true) }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(event) => {
+            event.preventDefault()
+            setIsDragging(false)
+            void handleFile(event.dataTransfer.files?.[0])
+          }}
+        >
           <textarea
             value={text}
             onChange={(event) => { setText(event.target.value); setSampleName('') }}
-            placeholder="在这里粘贴你的中文或英文原稿……&#10;&#10;建议中文不少于 400 字、英文不少于 180 词，并包含至少 6 个完整句子。短文本仍可分析，但系统会拒绝给出风险定性。"
+            placeholder="在这里粘贴你的中文或英文原稿，或把 PDF / Word / PPT 文件直接拖进来……&#10;&#10;判定充分性只需满足其一：中文 ≥400 字，或英文 ≥180 词，另需 ≥6 个完整句子。中英混排的论文按各自语言分别计算。"
             maxLength={50000}
             aria-label="待分析原稿"
             spellCheck="false"
@@ -125,6 +186,9 @@ export function Analyzer({ onAnalyzed, onToast }: AnalyzerProps) {
               <span>LOCAL ONLY</span>
               <p>你的原稿<br />只属于你。</p>
             </div>
+          )}
+          {isDragging && (
+            <div className="drop-overlay" aria-hidden="true"><Upload size={28} /><p>松开手，文件在本地解析</p></div>
           )}
         </div>
 
@@ -163,11 +227,13 @@ export function Analyzer({ onAnalyzed, onToast }: AnalyzerProps) {
       </div>
 
       <div className="sample-row">
-        <span>没有原稿在手边？用三份对照文本试试：</span>
+        <span>没有原稿在手边？六份对照样本覆盖不同语言与风格：</span>
         <div>
-          <button type="button" onClick={() => loadSample('zh')}><Sparkles size={14} /> 中文 · 模板化</button>
-          <button type="button" onClick={() => loadSample('human')}><BookOpen size={14} /> 中文 · 个人论证</button>
-          <button type="button" onClick={() => loadSample('en')}><Languages size={14} /> English draft</button>
+          {SAMPLE_LIBRARY.map((sample) => (
+            <button key={sample.id} type="button" onClick={() => loadSample(sample.id)}>
+              {sample.id.startsWith('zh') ? <BookOpen size={14} /> : <Languages size={14} />} {sample.shortName}
+            </button>
+          ))}
         </div>
       </div>
     </section>

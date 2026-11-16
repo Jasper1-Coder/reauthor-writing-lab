@@ -646,3 +646,21 @@ a { color: inherit; }
 @media print {
   .neural-launch, .neural-button { display: none; }
 }
+
+/* ============ v0.3: 文件导入 ============ */
+.textarea-wrap { position: relative; }
+.textarea-wrap.dragging { outline: 2px dashed var(--green); outline-offset: -6px; }
+.drop-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(22, 106, 74, 0.08);
+  border: 2px dashed var(--green);
+  color: var(--green-deep);
+  font-size: 15px;
+  pointer-events: none;
+}

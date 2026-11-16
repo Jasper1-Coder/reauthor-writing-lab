@@ -313,10 +313,20 @@ export function analyzeText(text: string, options: AnalysisOptions): AnalysisRep
   }
 
   const score = round(metrics.reduce((sum, metric) => sum + metric.score * metric.weight, 0))
-  const relevantUnits = language === 'en' ? enCount : language === 'zh' ? zhCount : zhCount + enCount * 2
-  const targetUnits = language === 'en' ? 180 : 400
-  const evidenceSufficiency = round(Math.min(1, relevantUnits / targetUnits) * 70 + Math.min(1, sentences.length / 8) * 30)
-  const isSampleSufficient = relevantUnits >= targetUnits && sentences.length >= 6
+  // 充分性按语言分别判定：中英混排文本（如带大量英文术语的中文论文）
+  // 只要任一语言达标即视为充分，不再因单一语言的字数被误判。
+  const zhOk = zhCount >= 400
+  const enOk = enCount >= 180
+  const isSampleSufficient = (zhOk || enOk) && sentences.length >= 6
+  const evidenceSufficiency = round(
+    Math.min(1, Math.max(zhCount / 400, enCount / 180)) * 70 + Math.min(1, sentences.length / 8) * 30,
+  )
+  const missing: string[] = []
+  if (!zhOk && !enOk) {
+    missing.push(`中文 ${zhCount}/400 字（或英文 ${enCount}/180 词）`)
+  }
+  if (sentences.length < 6) missing.push(`句子 ${sentences.length}/6`)
+  const sufficiencyHint = missing.length ? `还差：${missing.join('；')}` : ''
   const { level, label } = getLevel(score, isSampleSufficient)
   const evidenceLabel = evidenceSufficiency >= 80 ? '较充分' : evidenceSufficiency >= 50 ? '有限' : '不足'
 
@@ -333,6 +343,7 @@ export function analyzeText(text: string, options: AnalysisOptions): AnalysisRep
     evidenceSufficiency,
     evidenceLabel,
     isSampleSufficient,
+    sufficiencyHint,
     metrics,
     crossValidation,
     sentenceAnalyses: buildSentenceAnalyses(sentences, language, averageLength, repetitionData.repeated),
