@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   Sparkles,
 } from 'lucide-react'
-import { buildMarkdownReport, downloadMarkdown, getRevisionPlan } from '../lib/report'
+import { buildMarkdownReport, downloadText, getRevisionPlan } from '../lib/report'
+import { DefenseKit } from './DefenseKit'
 import { evaluateSpread } from '../lib/crosscheck'
 import { PROBABILITY_FORMULA, PROBABILITY_MODEL_LABEL, runProbabilityChannel } from '../lib/probability'
 import calibrationData from '../data/calibration.json'
@@ -28,7 +29,7 @@ interface ResultsProps {
   onToast: (message: string) => void
 }
 
-type Tab = 'sentences' | 'revision' | 'rubric'
+type Tab = 'sentences' | 'revision' | 'rubric' | 'defense'
 type Filter = 'all' | 'attention' | 'low'
 
 const languageNames = { zh: '中文', en: 'English', mixed: '中英混合' }
@@ -152,7 +153,7 @@ export function Results({ report, onToast }: ResultsProps) {
         <div className="report-actions">
           <button type="button" onClick={copyReport}><Clipboard size={16} /> 复制报告</button>
           <button type="button" onClick={() => window.print()}><Printer size={16} /> 打印</button>
-          <button className="export-button" type="button" onClick={() => { downloadMarkdown(report); onToast('诊断报告已下载为 Markdown 文件') }}><ArrowDownToLine size={16} /> 下载报告</button>
+          <button className="export-button" type="button" onClick={() => { downloadText(buildMarkdownReport(report), `ReAuthor-写作诊断-${new Date(report.createdAt).toISOString().slice(0, 10)}.md`); onToast('诊断报告已下载为 Markdown 文件') }}><ArrowDownToLine size={16} /> 下载报告</button>
         </div>
       </div>
 
@@ -303,6 +304,7 @@ export function Results({ report, onToast }: ResultsProps) {
           <button role="tab" aria-selected={tab === 'sentences'} className={tab === 'sentences' ? 'active' : ''} onClick={() => setTab('sentences')}>逐句批注 <span>{report.stats.sentences}</span></button>
           <button role="tab" aria-selected={tab === 'revision'} className={tab === 'revision' ? 'active' : ''} onClick={() => setTab('revision')}>修改路线 <span>03</span></button>
           <button role="tab" aria-selected={tab === 'rubric'} className={tab === 'rubric' ? 'active' : ''} onClick={() => setTab('rubric')}>判分依据 <span>?</span></button>
+          <button role="tab" aria-selected={tab === 'defense'} className={tab === 'defense' ? 'active' : ''} onClick={() => setTab('defense')}>申诉工作台 <span>盾</span></button>
         </div>
 
         {tab === 'sentences' && (
@@ -369,6 +371,8 @@ export function Results({ report, onToast }: ResultsProps) {
             </div>
           </div>
         )}
+
+        {tab === 'defense' && <DefenseKit report={report} onToast={onToast} />}
       </div>
     </section>
   )

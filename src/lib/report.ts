@@ -88,12 +88,12 @@ export function buildMarkdownReport(report: AnalysisReport): string {
   return lines.join('\n')
 }
 
-export function downloadMarkdown(report: AnalysisReport) {
-  const blob = new Blob([buildMarkdownReport(report)], { type: 'text/markdown;charset=utf-8' })
+export function downloadText(markdown: string, filename: string) {
+  const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
-  anchor.download = `ReAuthor-写作诊断-${new Date(report.createdAt).toISOString().slice(0, 10)}.md`
+  anchor.download = filename
   document.body.appendChild(anchor)
   anchor.click()
   anchor.remove()

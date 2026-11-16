@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { SAMPLE_EN, SAMPLE_HUMAN_ZH, SAMPLE_ZH } from '../data/samples'
+import { evaluateDisagreement } from '../data/defenseEvidence'
+import { buildDefenseDocument } from '../lib/defense'
 import { analyzeText, detectLanguage, splitSentences } from '../lib/analyzer'
 
 const options = { language: 'auto', documentType: 'academic' } as const
@@ -86,5 +88,37 @@ describe('transparent heuristic scoring', () => {
     expect(cross.spread).toBe(Math.max(...scores) - Math.min(...scores))
     expect(['aligned', 'mixed', 'divergent']).toContain(cross.verdict)
     expect(cross.note.length).toBeGreaterThan(10)
+  })
+})
+
+describe('defense kit', () => {
+  it('flags severe platform disagreement and builds the argument', () => {
+    const verdict = evaluateDisagreement([5, 70, 50])
+    expect(verdict.level).toBe('severely-divergent')
+    expect(verdict.spread).toBe(65)
+    expect(verdict.argument).toContain('65')
+  })
+
+  it('warns that consistency does not imply correctness', () => {
+    const verdict = evaluateDisagreement([44, 45])
+    expect(verdict.level).toBe('consistent')
+    expect(verdict.argument).toContain('一致性不等于正确性')
+  })
+
+  it('builds a defense document with evidence, records and honesty guardrails', () => {
+    const report = analyzeText(SAMPLE_EN, options)
+    const doc = buildDefenseDocument(
+      report,
+      [{ platform: '知网', score: 78, date: '2026-11-16' }, { platform: 'PaperPass', score: 30, date: '2026-11-16' }],
+      evaluateDisagreement([78, 30]),
+      { timeline: '', evidenceNotes: '', aiUsage: '未使用 AI 生成正文' },
+    )
+    expect(doc).toContain('AIGC 检测结果申诉参考材料')
+    expect(doc).toContain('61.3%')
+    expect(doc).toContain('写作过程陈述')
+    expect(doc).toContain('未使用 AI 生成正文')
+    expect(doc).toContain('| 知网 | 78% | 2026-11-16 |')
+    expect(doc).toContain('只应填写真实信息')
+    expect(doc).toContain('机器初检')
   })
 })

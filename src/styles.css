@@ -712,3 +712,151 @@ a { color: inherit; }
 }
 .redteam-delta.big-drop { color: var(--red); border-color: var(--red); font-weight: 600; }
 @media print { .redteam-tactics { display: none; } }
+
+/* ============ v0.4: 申诉工作台 ============ */
+.defense-panel { padding: 34px 36px 26px; }
+.defense-intro {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  border: 1px solid var(--line-strong);
+  border-left: 5px solid var(--green);
+  background: var(--paper-raised);
+  padding: 22px 26px;
+  margin-bottom: 34px;
+}
+.defense-intro svg { color: var(--green); flex-shrink: 0; margin-top: 3px; }
+.defense-intro h3 { font-size: 19px; margin-bottom: 8px; }
+.defense-intro p { font-size: 14px; color: var(--ink-soft); line-height: 1.75; }
+
+.defense-step { margin-top: 34px; }
+.defense-step > header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+.defense-step > header span {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--paper);
+  background: var(--ink);
+  padding: 4px 9px;
+}
+.defense-step > header h4 { font-size: 16.5px; }
+
+.defense-evidence-list { display: flex; flex-direction: column; gap: 14px; }
+.defense-evidence {
+  border: 1px solid var(--line);
+  background: var(--paper-raised);
+  padding: 18px 22px 14px;
+}
+.evidence-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.evidence-stat { font-family: var(--mono); font-size: 15px; color: var(--green-deep); }
+.evidence-year { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.defense-evidence h5 { font-size: 15px; margin: 8px 0 6px; }
+.defense-evidence p { font-size: 13px; color: var(--ink-soft); line-height: 1.7; }
+.defense-evidence blockquote {
+  margin: 10px 0;
+  padding: 8px 14px;
+  border-left: 3px solid var(--orange);
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  background: var(--paper);
+}
+.evidence-uses { display: flex; justify-content: space-between; gap: 14px; align-items: center; flex-wrap: wrap; }
+.evidence-uses span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-faint); }
+.evidence-uses a { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--green-deep); text-decoration: underline; }
+
+.record-form { display: flex; gap: 10px; flex-wrap: wrap; }
+.record-form input {
+  border: 1px solid var(--line-strong);
+  background: var(--paper-raised);
+  padding: 10px 14px;
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--ink);
+}
+.record-form input:nth-child(1) { flex: 2 1 220px; }
+.record-form input:nth-child(2) { flex: 1 1 110px; }
+.record-form input:nth-child(3) { flex: 1 1 130px; }
+.record-form button {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--ink); background: var(--ink); color: var(--paper);
+  font-family: var(--sans); font-size: 13.5px; padding: 10px 18px; cursor: pointer;
+}
+.record-form button:hover { background: var(--green-deep); border-color: var(--green-deep); }
+
+.record-table { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+.record-row {
+  display: grid;
+  grid-template-columns: 1.6fr 0.7fr 0.9fr auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  background: var(--paper-raised);
+  padding: 11px 16px;
+  font-size: 14px;
+}
+.record-row em { font-style: normal; font-family: var(--mono); font-size: 16px; color: var(--ink); }
+.record-row span { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
+.record-row button { border: none; background: none; color: var(--ink-faint); cursor: pointer; padding: 4px; }
+.record-row button:hover { color: var(--red); }
+.record-verdict {
+  border: 1px solid var(--line-strong);
+  padding: 16px 20px;
+  margin-top: 8px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  background: var(--paper-raised);
+}
+.record-verdict strong { display: inline-block; font-size: 14.5px; margin-bottom: 6px; padding: 3px 10px; border: 1px solid currentColor; }
+.record-verdict.verdict-severely-divergent strong { color: var(--red); }
+.record-verdict.verdict-divergent strong { color: var(--orange); }
+.record-verdict.verdict-consistent strong { color: var(--green-deep); }
+.record-verdict.verdict-single strong { color: var(--ink-soft); }
+.record-verdict p { color: var(--ink-soft); }
+
+.defense-note { font-size: 13.5px; color: var(--ink-soft); margin-bottom: 14px; }
+.defense-toggle {
+  border: 1px solid var(--line-strong);
+  background: var(--paper-raised);
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--ink-soft);
+  padding: 9px 16px;
+  cursor: pointer;
+}
+.defense-toggle:hover { border-color: var(--ink); color: var(--ink); }
+.process-form { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.process-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: var(--ink-soft); }
+.process-form textarea {
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  font-family: var(--sans);
+  font-size: 13.5px;
+  color: var(--ink);
+  padding: 10px 13px;
+  resize: vertical;
+}
+.defense-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+.defense-actions button {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1px solid var(--line-strong);
+  background: var(--paper-raised);
+  font-family: var(--sans);
+  font-size: 13.5px;
+  color: var(--ink);
+  padding: 11px 20px;
+  cursor: pointer;
+}
+.defense-actions button:hover { border-color: var(--ink); }
+.defense-primary { background: var(--ink) !important; color: var(--paper) !important; border-color: var(--ink) !important; }
+.defense-primary:hover { background: var(--green-deep) !important; border-color: var(--green-deep) !important; }
+.defense-ethics {
+  margin-top: 16px;
+  padding: 14px 18px;
+  border-left: 4px solid var(--yellow);
+  background: var(--paper-raised);
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+@media print {
+  .record-form, .defense-toggle, .defense-actions, .process-form { display: none !important; }
+}
