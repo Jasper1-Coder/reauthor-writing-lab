@@ -25,7 +25,7 @@ export function Methodology() {
           <div className="method-lead">
             <p className="eyebrow">OPEN METHODOLOGY</p>
             <h2 id="method-title">严谨，不是把话说满。<br /><em>是把边界说清。</em></h2>
-            <p>Turnitin、ZeroGPT、Pangram 给了交互参照，但我们不复制它们的“判决式叙事”。本站做了四件它们不做的事：多条独立证据链交叉验证并公布分歧；在 HC3 中文公开数据集上，既如实公布手调规则接近随机的误判率，也训练出有留出折误差数据的校准模型；提供可复核的浏览器本地神经通道（实验）；把每个系数、训练协议和边界全部公开，任何人可复现。研究实现用于设计参照，不在浏览器里冒充运行 7B 大模型。</p>
+            <p>Turnitin、ZeroGPT、Pangram 给了交互参照，但我们不复制它们的“判决式叙事”。本站做了四件它们不做的事：多条独立证据链交叉验证并公布分歧；在 HC3 中文公开数据集上，既如实公布手调规则接近随机的误判率，也训练出有留出折误差数据的校准模型；用可复核的大语料检索取代黑箱打分（零 AI 模型、最近邻原文可逐条核对）；把每个系数、训练协议和边界全部公开，任何人可复现。我们相信查重的本质是"与参照基座比对"，不是非得跑一个大模型。</p>
             <a className="text-link" href="https://github.com/Jasper1-Coder/reauthor-writing-lab" target="_blank" rel="noreferrer">查看完整源码与评分常量 <ArrowUpRight size={16} /></a>
           </div>
           <div className="method-principles">
@@ -271,6 +271,37 @@ export function Methodology() {
               完整 32 段样本与逐篇分数在仓库 <code>crossdomain/academic_zh.jsonl</code> 和 <code>src/data/crossDomainValidation.json</code>；
               运行 <code>npx tsx scripts/crossdomain-test.ts</code> 可一键复现。<strong>权威不是从不出错，是把出错的地方也摆出来。</strong>
             </p>
+          </div>
+        </div>
+
+        <div className="calibration-section crossdomain-section retrieval-section" id="retrieval">
+          <div className="ledger-heading">
+            <span>V0.7 · CORPUS RETRIEVAL · 语料检索</span>
+            <h3>不跑 AI，也能有信号：把"AI 率"变成可核对的最近邻。</h3>
+            <p>有人问：必须用 AI 辅助查重才行吗？我们的回答是不必。检测的本质是与参照基座比对——你只需回答"你的文本最像基座里哪 15 段真实语料，它们是人写还是 AI 写"。</p>
+          </div>
+          <div className="calibration-grid">
+            <article className="crosscheck-card calibrated-strip">
+              <div className="coef-row"><strong>通道</strong><strong>域内留出 AUC</strong><strong>跨域学术 AUC</strong><strong>依赖</strong></div>
+              <div className="coef-row"><span>语料检索（新增）</span><strong>0.986</strong><span>≈0.53</span><span>零模型</span></div>
+              <div className="coef-row"><span>校准逻辑回归</span><span>0.930</span><span>0.859（分塌缩）</span><span>8 特征</span></div>
+              <div className="coef-row"><span>手调规则引擎</span><span>0.515</span><span>0.223</span><span>词表</span></div>
+              <p className="calibration-moral">
+                做法：把 <strong>6010 段 HC3 中文真实问答</strong>（人写 / ChatGPT 配对）用字符 bigram + 特征哈希 + TF-IDF 向量化，检索时算余弦相似度 top15，按相似度加权统计其中 AI 标签占比。全过程是确定性数学，浏览器本地完成，<strong>不下载模型、不联网、不上传文本</strong>；索引 gzip 约 2.3 MB，按需加载。
+              </p>
+            </article>
+            <article className="crosscheck-card">
+              <h4 style={{ marginTop: 0 }}>诚实的边界：为什么它在学术文本上会"翻车"</h4>
+              <p className="calibration-disclosure">
+                域内留出 AUC 0.986 很漂亮，但换到真实学术摘要就掉到约 0.53——最近邻几乎全被判成 AI。原因是基座来自问答语料，与学术写作不是一个分布；而域内与跨域的相似度分布<strong>相互重叠</strong>，无法用一个阈值可靠地自动识别"这段话不属于我的基座"。
+              </p>
+              <p className="calibration-disclosure">
+                所以我们不做"自动弃权"的假动作，而是把不确定性摊开：结果页显示<strong>基座匹配度</strong>，并列出 top15 最近邻的原文片段与人写/AI 标签——你可以自己判断它们到底像不像你的文本。匹配度低时通道明确降级为定性参考。一个你能亲自核对的证据，永远比一个无法解释的百分比更可信。
+              </p>
+              <p className="calibration-moral">
+                构建脚本 <code>scripts/build-retrieval-index.ts</code> 与可行性实验 <code>scripts/retrieval-probe.ts</code> 均在仓库，含压缩后 AUC 自检；运行 <code>npx tsx scripts/build-retrieval-index.ts</code> 可一键复现。<strong>神经通道曾因浏览器无法解析 CDN 推理库的模块名而报错，这一版已由检索通道取代——它更稳、更强、可解释。</strong>
+              </p>
+            </article>
           </div>
         </div>
 

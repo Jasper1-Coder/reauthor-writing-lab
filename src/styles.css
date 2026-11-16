@@ -995,3 +995,35 @@ a { color: inherit; }
   .rewrite-actions, .rewrite-footer button, .rewrite-card-head > svg { display: none !important; }
   .rewrite-editor textarea { border: none; background: transparent; }
 }
+
+/* ============ v0.7: 语料检索通道 ============ */
+.retrieval-card .crosscheck-bar i { background: #2f6f9f; }
+.retrieval-neighbors { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+.retrieval-toggle {
+  display: flex; align-items: center; gap: 7px;
+  border: none; background: transparent; padding: 0;
+  font-family: var(--sans); font-size: 12.5px; color: var(--green-deep);
+  cursor: pointer;
+}
+.retrieval-toggle .rotated { transform: rotate(180deg); }
+.retrieval-toggle svg:last-child { margin-left: auto; transition: transform 0.15s; }
+.neighbor-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.neighbor-item {
+  border-left: 3px solid var(--line);
+  background: var(--paper-raised);
+  padding: 8px 10px;
+}
+.neighbor-item.neighbor-1 { border-left-color: var(--orange); }
+.neighbor-item.neighbor-0 { border-left-color: var(--green); }
+.neighbor-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.neighbor-rank { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.neighbor-tag {
+  font-size: 11px; font-family: var(--sans); padding: 1px 7px;
+  border: 1px solid var(--line);
+}
+.neighbor-1 .neighbor-tag { color: var(--orange); border-color: var(--orange); }
+.neighbor-0 .neighbor-tag { color: var(--green-deep); border-color: var(--green); }
+.neighbor-sim { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.neighbor-item p { margin: 6px 0 0; font-size: 12px; line-height: 1.6; color: var(--ink-soft); }
+.retrieval-formula { margin-top: 10px; font-size: 11px; line-height: 1.5; color: var(--ink-faint); font-family: var(--mono); }
+@media print { .retrieval-toggle, .neighbor-list { display: none; } }

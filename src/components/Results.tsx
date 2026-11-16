@@ -21,10 +21,10 @@ import { buildMarkdownReport, downloadText, getRevisionPlan } from '../lib/repor
 import { DefenseKit } from './DefenseKit'
 import { RewriteWorkbench } from './RewriteWorkbench'
 import { evaluateSpread } from '../lib/crosscheck'
-import { PROBABILITY_FORMULA, PROBABILITY_MODEL_LABEL, runProbabilityChannel } from '../lib/probability'
+import { RETRIEVAL_CORPUS_LABEL, RETRIEVAL_FORMULA, runRetrievalChannel } from '../lib/retrieval'
 import calibrationData from '../data/calibration.json'
 import { CALIBRATED_MODEL_INFO as modelInfo } from '../lib/calibrated'
-import type { AnalysisReport, ProbabilityChannelResult, SentenceAnalysis } from '../lib/types'
+import type { AnalysisReport, RetrievalChannelResult, SentenceAnalysis } from '../lib/types'
 
 interface ResultsProps {
   report: AnalysisReport
@@ -79,7 +79,8 @@ function SentenceRow({ sentence, expanded, onToggle }: { sentence: SentenceAnaly
 export function Results({ report, onToast, onUseFullText }: ResultsProps) {
   const [tab, setTab] = useState<Tab>('sentences')
   const [filter, setFilter] = useState<Filter>('all')
-  const [prob, setProb] = useState<ProbabilityChannelResult>({ status: 'idle', message: '' })
+  const [retr, setRetr] = useState<RetrievalChannelResult>({ status: 'idle', message: '' })
+  const [showNeighbors, setShowNeighbors] = useState(false)
   const [expandedId, setExpandedId] = useState<number | null>(report.sentenceAnalyses.find((sentence) => sentence.level === 'priority')?.id ?? 1)
   const revisionPlan = getRevisionPlan(report)
   const circumference = 2 * Math.PI * 76
@@ -101,16 +102,19 @@ export function Results({ report, onToast, onUseFullText }: ResultsProps) {
 
   const crossCheck = useMemo(() => {
     const base = report.crossValidation
-    if (prob.status !== 'done' || typeof prob.score !== 'number') return base
+    if (retr.status !== 'done' || typeof retr.score !== 'number') return base
+    const lowCoverage = typeof retr.coverage === 'number' && retr.coverage < 0.32
     const detectors = [
       ...base.detectors,
       {
-        id: 'probability' as const,
-        name: '神经通道（实验）',
-        englishName: 'Neural (beta)',
-        family: '浏览器本地 token 概率：困惑度 + 突发度，Qwen2.5-0.5B 量化版',
-        score: prob.score,
-        detail: prob.message,
+        id: 'retrieval' as const,
+        name: lowCoverage ? '语料检索（低覆盖）' : '语料检索通道',
+        englishName: 'Corpus retrieval',
+        family: lowCoverage
+          ? '基座匹配度低：与问答语料差异较大，读数仅作定性参考'
+          : '本地检索 6010 段真实语料的最近邻，零模型零联网',
+        score: retr.score,
+        detail: retr.message,
       },
     ]
     const spread = evaluateSpread(detectors.map((detector) => detector.score))
@@ -118,19 +122,21 @@ export function Results({ report, onToast, onUseFullText }: ResultsProps) {
       ...base,
       detectors,
       ...spread,
-      note:
-        spread.verdict === 'aligned'
-          ? '所有通道（含神经通道）读数接近，但请注意：本校准显示表层规则通道在真实数据上接近随机，神经通道为实验性未校准。结论请以逐句证据为准。'
+      note: lowCoverage
+        ? '语料检索通道显示基座匹配度偏低——很可能因为你的文本是学术/论文写作，而基座来自问答语料（该场景跨域 AUC 仅约 0.53）。请把检索读数当定性参考，不要当分数引用。'
+        : spread.verdict === 'aligned'
+          ? '各通道读数接近，但请注意：表层规则通道在真实数据上接近随机。结论请以逐句证据为准。'
           : spread.verdict === 'mixed'
-            ? '加入神经通道后分歧扩大。这正说明"AI 率"没有唯一真值——请对比逐句证据，而不是挑一个你喜欢的数字。'
+            ? '加入检索通道后存在分歧。这正说明"AI 率"没有唯一真值——请对比逐句证据，而不是挑一个你喜欢的数字。'
             : '通道严重分歧。任何检测网站此时给出的精确百分比（包括本站）都不应被引用。',
     }
-  }, [report, prob])
+  }, [report, retr])
 
-  const launchProbability = async () => {
-    if (prob.status === 'loading' || prob.status === 'running') return
-    const result = await runProbabilityChannel(report.originalText, (update) => setProb(update))
-    setProb(result)
+  const launchRetrieval = async () => {
+    if (retr.status === 'loading' || retr.status === 'running') return
+    setShowNeighbors(false)
+    const result = await runRetrievalChannel(report.originalText, (update) => setRetr(update))
+    setRetr(result)
   }
 
   const copyReport = async () => {
@@ -259,38 +265,67 @@ export function Results({ report, onToast, onUseFullText }: ResultsProps) {
               <p className="crosscheck-detail">{detector.detail}</p>
             </article>
           ))}
-          <article className="crosscheck-card neural-card">
+          <article className="crosscheck-card retrieval-card">
             <div className="crosscheck-score">
-              {prob.status === 'done' && typeof prob.score === 'number'
-                ? <><strong>{prob.score}</strong><span>/100</span></>
+              {retr.status === 'done' && typeof retr.score === 'number'
+                ? <><strong>{retr.score}</strong><span>/100</span></>
                 : <strong className="neural-na">—</strong>}
             </div>
-            <h4>神经通道（实验）</h4>
-            <p className="crosscheck-en">Neural · token 概率</p>
-            {prob.status === 'done' && <div className="crosscheck-bar"><i style={{ width: `${prob.score}%` }} /></div>}
-            {prob.status === 'idle' && (
+            <h4>语料检索通道</h4>
+            <p className="crosscheck-en">Corpus retrieval · nearest neighbors</p>
+            {retr.status === 'done' && <div className="crosscheck-bar"><i style={{ width: `${retr.score}%` }} /></div>}
+            {retr.status === 'idle' && (
               <div className="neural-launch">
-                <p>{PROBABILITY_MODEL_LABEL}</p>
-                <button type="button" className="neural-button" onClick={launchProbability}>
-                  <Sparkles size={15} /> 启动本地模型分析
+                <p>{RETRIEVAL_CORPUS_LABEL}</p>
+                <button type="button" className="neural-button" onClick={launchRetrieval}>
+                  <Sparkles size={15} /> 检索真实语料基座
                 </button>
-                <small>下载约 350 MB（国内镜像），之后浏览器缓存；全程本地推理，文本不上传。</small>
+                <small>首次加载约 2.3 MB 索引（之后浏览器缓存）；纯本地计算，零模型、零联网、文本不上传。</small>
               </div>
             )}
-            {(prob.status === 'loading' || prob.status === 'running') && (
+            {(retr.status === 'loading' || retr.status === 'running') && (
               <div className="neural-launch">
-                <p className="neural-progress"><LoaderCircle size={15} className="spin" /> {prob.message}</p>
+                <p className="neural-progress"><LoaderCircle size={15} className="spin" /> {retr.message}</p>
               </div>
             )}
-            {prob.status === 'error' && (
+            {retr.status === 'error' && (
               <div className="neural-launch">
-                <p className="neural-error"><AlertCircle size={15} /> {prob.message}</p>
-                <small>{prob.error}</small>
-                <button type="button" className="neural-button" onClick={launchProbability}>重试</button>
+                <p className="neural-error"><AlertCircle size={15} /> {retr.message}</p>
+                <small>{retr.error}</small>
+                <button type="button" className="neural-button" onClick={launchRetrieval}>重试</button>
               </div>
             )}
-            {prob.status === 'done' && <p className="crosscheck-family">困惑度 {prob.perplexity}，突发度 {prob.burstiness}（{prob.tokens} tokens）</p>}
-            {prob.status === 'done' && <p className="crosscheck-detail">换算公式公开：{PROBABILITY_FORMULA}</p>}
+            {retr.status === 'done' && (
+              <>
+                <p className="crosscheck-family">
+                  基座匹配度 {retr.coverage?.toFixed(2)} · 检索 {retr.corpusSize} 段真实语料
+                </p>
+                <p className="crosscheck-detail">{retr.message}</p>
+                {retr.neighbors && retr.neighbors.length > 0 && (
+                  <div className="retrieval-neighbors">
+                    <button type="button" className="retrieval-toggle" onClick={() => setShowNeighbors((v) => !v)} aria-expanded={showNeighbors}>
+                      <ListFilter size={14} /> {showNeighbors ? '收起' : '查看'}最像的 {retr.neighbors.length} 段原文
+                      <ChevronDown size={14} className={showNeighbors ? 'rotated' : ''} />
+                    </button>
+                    {showNeighbors && (
+                      <ol className="neighbor-list">
+                        {retr.neighbors.map((n, i) => (
+                          <li key={n.docIndex} className={`neighbor-item neighbor-${n.label}`}>
+                            <div className="neighbor-meta">
+                              <span className="neighbor-rank">#{i + 1}</span>
+                              <span className="neighbor-tag">{n.label === 1 ? 'AI 生成' : '真人撰写'}</span>
+                              <span className="neighbor-sim">相似度 {n.similarity.toFixed(3)}</span>
+                            </div>
+                            <p>“{n.excerpt}…”</p>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </div>
+                )}
+                <p className="retrieval-formula">口径公开：{RETRIEVAL_FORMULA}</p>
+              </>
+            )}
           </article>
         </div>
         <div className={`crosscheck-verdict verdict-${crossCheck.verdict}`}>

@@ -37,7 +37,7 @@ export interface Metric {
 }
 
 export type CrossVerdict = 'aligned' | 'mixed' | 'divergent'
-export type DetectorId = 'lexicon' | 'rhythm' | 'repetition' | 'specificity' | 'calibrated' | 'probability'
+export type DetectorId = 'lexicon' | 'rhythm' | 'repetition' | 'specificity' | 'calibrated' | 'probability' | 'retrieval'
 
 export interface DetectorResult {
   id: DetectorId
@@ -67,6 +67,25 @@ export interface ProbabilityChannelResult {
   perplexity?: number
   burstiness?: number
   score?: number
+  formula?: string
+  error?: string
+}
+
+export interface RetrievalNeighbor {
+  label: 0 | 1
+  similarity: number
+  excerpt: string
+  docIndex: number
+}
+
+export interface RetrievalChannelResult {
+  status: ProbabilityStatus
+  message: string
+  score?: number
+  aiRatio?: number
+  coverage?: number
+  neighbors?: RetrievalNeighbor[]
+  corpusSize?: number
   formula?: string
   error?: string
 }
