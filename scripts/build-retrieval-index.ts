@@ -14,11 +14,12 @@ import zlib from 'node:zlib'
 
 const ROOT = process.cwd()
 const DIMS = 4096
-const TOPK_DIMS = 128 // 每文档只保留权重最高的 128 个哈希维度（压缩）
+const TOPK_DIMS = 64 // 每文档保留 top64 特征：AUC 0.956→0.950，体积近乎减半
 const MIN_LEN = 150
 const MAX_LEN = 2200
 const TEST_EVERY = 6
 const OUT = path.join(ROOT, 'public', 'retrieval-index.json')
+const EXCERPTS_OUT = path.join(ROOT, 'public', 'retrieval-excerpts.json')
 
 function bigrams(text: string): string[] {
   const t = text.replace(/\s+/g, '')
@@ -100,19 +101,16 @@ for (let i = 0; i < rawDocs.length; i++) {
     const w = Math.round(tfv * 100)
     if (w > 0) v.push(dim, w)
   }
-  // 归一化并截取稳定片段（去掉首尾空白、压缩换行）用于展示最近邻
-  const excerpt = rawDocs[i].text.replace(/\s+/g, ' ').trim().slice(0, 90)
-  docs.push({ l: rawDocs[i].label, v, e: excerpt })
+  docs.push({ l: rawDocs[i].label, v })
 }
 
 const artifact = {
-  version: 1,
+  version: 2,
   dims: DIMS,
   docCount: docs.length,
   idf: idf.map((x) => Number(x.toFixed(3))),
   labels: docs.map((d) => d.l),
   docs: docs.map((d) => d.v),
-  excerpts: docs.map((d) => d.e),
   meta: {
     source: 'Hello-SimpleAI/HC3-Chinese (Apache-2.0), zh_* subsets',
     method: 'char-bigram hashing + TF-IDF, top-K dims per doc, no neural model',
@@ -121,13 +119,18 @@ const artifact = {
   },
 }
 
+// 原文片段单独成文件：只有用户点开"查看最近邻"时才加载，不拖慢检索启动
+const excerpts = rawDocs.map((d) => d.text.replace(/\s+/g, ' ').trim().slice(0, 90))
+
 fs.mkdirSync(path.dirname(OUT), { recursive: true })
 const json = JSON.stringify(artifact)
 fs.writeFileSync(OUT, json, 'utf-8')
+fs.writeFileSync(EXCERPTS_OUT, JSON.stringify(excerpts), 'utf-8')
 const gz = zlib.gzipSync(Buffer.from(json))
+const gzEx = zlib.gzipSync(Buffer.from(JSON.stringify(excerpts)))
 console.log(`文档数: ${docs.length}`)
-console.log(`原始: ${(Buffer.byteLength(json) / 1024 / 1024).toFixed(2)} MB`)
-console.log(`gzip: ${(gz.length / 1024 / 1024).toFixed(2)} MB  (传输时由 CDN 自动 gzip)`)
+console.log(`主索引: 原始 ${(Buffer.byteLength(json) / 1024 / 1024).toFixed(2)} MB / gzip ${(gz.length / 1024).toFixed(0)} KB（启动即需）`)
+console.log(`片段表: gzip ${(gzEx.length / 1024).toFixed(0)} KB（点开最近邻才加载）`)
 
 // ---- 自检：用产物格式重放域内留出 AUC（验证压缩没毁掉信号）----
 const postings = new Map<number, Array<{ i: number; w: number }>>()

@@ -21,7 +21,7 @@ import { buildMarkdownReport, downloadText, getRevisionPlan } from '../lib/repor
 import { DefenseKit } from './DefenseKit'
 import { RewriteWorkbench } from './RewriteWorkbench'
 import { evaluateSpread } from '../lib/crosscheck'
-import { RETRIEVAL_CORPUS_LABEL, RETRIEVAL_FORMULA, runRetrievalChannel } from '../lib/retrieval'
+import { RETRIEVAL_CORPUS_LABEL, RETRIEVAL_FORMULA, loadExcerpts, runRetrievalChannel } from '../lib/retrieval'
 import calibrationData from '../data/calibration.json'
 import { CALIBRATED_MODEL_INFO as modelInfo } from '../lib/calibrated'
 import type { AnalysisReport, RetrievalChannelResult, SentenceAnalysis } from '../lib/types'
@@ -81,6 +81,16 @@ export function Results({ report, onToast, onUseFullText }: ResultsProps) {
   const [filter, setFilter] = useState<Filter>('all')
   const [retr, setRetr] = useState<RetrievalChannelResult>({ status: 'idle', message: '' })
   const [showNeighbors, setShowNeighbors] = useState(false)
+  const [excerpts, setExcerpts] = useState<string[] | null>(null)
+
+  const toggleNeighbors = async () => {
+    if (showNeighbors) { setShowNeighbors(false); return }
+    setShowNeighbors(true)
+    if (!excerpts) {
+      try { setExcerpts(await loadExcerpts()) }
+      catch { onToast('原文片段加载失败，请检查网络后重试') }
+    }
+  }
   const [expandedId, setExpandedId] = useState<number | null>(report.sentenceAnalyses.find((sentence) => sentence.level === 'priority')?.id ?? 1)
   const revisionPlan = getRevisionPlan(report)
   const circumference = 2 * Math.PI * 76
@@ -280,7 +290,7 @@ export function Results({ report, onToast, onUseFullText }: ResultsProps) {
                 <button type="button" className="neural-button" onClick={launchRetrieval}>
                   <Sparkles size={15} /> 检索真实语料基座
                 </button>
-                <small>首次加载约 2.3 MB 索引（之后浏览器缓存）；纯本地计算，零模型、零联网、文本不上传。</small>
+                <small>首次加载约 911 KB 索引（之后浏览器缓存）；纯本地计算，零模型、零联网、文本不上传。</small>
               </div>
             )}
             {(retr.status === 'loading' || retr.status === 'running') && (
@@ -303,23 +313,25 @@ export function Results({ report, onToast, onUseFullText }: ResultsProps) {
                 <p className="crosscheck-detail">{retr.message}</p>
                 {retr.neighbors && retr.neighbors.length > 0 && (
                   <div className="retrieval-neighbors">
-                    <button type="button" className="retrieval-toggle" onClick={() => setShowNeighbors((v) => !v)} aria-expanded={showNeighbors}>
+                    <button type="button" className="retrieval-toggle" onClick={toggleNeighbors} aria-expanded={showNeighbors}>
                       <ListFilter size={14} /> {showNeighbors ? '收起' : '查看'}最像的 {retr.neighbors.length} 段原文
                       <ChevronDown size={14} className={showNeighbors ? 'rotated' : ''} />
                     </button>
                     {showNeighbors && (
-                      <ol className="neighbor-list">
-                        {retr.neighbors.map((n, i) => (
-                          <li key={n.docIndex} className={`neighbor-item neighbor-${n.label}`}>
-                            <div className="neighbor-meta">
-                              <span className="neighbor-rank">#{i + 1}</span>
-                              <span className="neighbor-tag">{n.label === 1 ? 'AI 生成' : '真人撰写'}</span>
-                              <span className="neighbor-sim">相似度 {n.similarity.toFixed(3)}</span>
-                            </div>
-                            <p>“{n.excerpt}…”</p>
-                          </li>
-                        ))}
-                      </ol>
+                      excerpts === null
+                        ? <p className="retrieval-loading"><LoaderCircle size={14} className="spin" /> 正在加载原文片段（约 300 KB，仅首次）…</p>
+                        : <ol className="neighbor-list">
+                            {retr.neighbors.map((n, i) => (
+                              <li key={n.docIndex} className={`neighbor-item neighbor-${n.label}`}>
+                                <div className="neighbor-meta">
+                                  <span className="neighbor-rank">#{i + 1}</span>
+                                  <span className="neighbor-tag">{n.label === 1 ? 'AI 生成' : '真人撰写'}</span>
+                                  <span className="neighbor-sim">相似度 {n.similarity.toFixed(3)}</span>
+                                </div>
+                                <p>“{excerpts[n.docIndex] ?? n.excerpt ?? ''}…”</p>
+                              </li>
+                            ))}
+                          </ol>
                     )}
                   </div>
                 )}

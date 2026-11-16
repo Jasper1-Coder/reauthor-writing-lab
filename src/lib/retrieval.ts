@@ -20,7 +20,7 @@ interface RetrievalIndex {
   idf: number[]
   labels: number[]
   docs: number[][]
-  excerpts: string[]
+  excerpts?: string[]
   meta: { source: string; method: string; topKDims: number; builtAt: string }
 }
 
@@ -116,7 +116,7 @@ export function retrieve(queryVector: Map<number, number>, index: PreparedIndex,
   const neighbors: RetrievalNeighbor[] = top.map(({ i, s }) => ({
     label: (raw.labels[i] === 1 ? 1 : 0) as 0 | 1,
     similarity: Number(s.toFixed(3)),
-    excerpt: raw.excerpts[i] ?? '',
+    excerpt: raw.excerpts?.[i] ?? '',
     docIndex: i,
   }))
   return {
@@ -129,8 +129,9 @@ export function retrieve(queryVector: Map<number, number>, index: PreparedIndex,
 }
 
 let preparedPromise: Promise<PreparedIndex> | null = null
+let excerptsPromise: Promise<string[]> | null = null
 
-/** 索引按需加载（不进首屏），首次下载后由浏览器缓存 */
+/** 主索引按需加载（不进首屏），首次下载后由浏览器缓存 */
 function loadIndex(): Promise<PreparedIndex> {
   if (!preparedPromise) {
     preparedPromise = fetch(new URL('retrieval-index.json', document.baseURI).href)
@@ -144,12 +145,28 @@ function loadIndex(): Promise<PreparedIndex> {
   return preparedPromise
 }
 
+/**
+ * 原文片段按需加载：只有用户点开"查看最近邻"时才下载（gzip 约 300 KB）。
+ * 检索本身不依赖它，因此启动更快。返回按 docIndex 索引的字符串数组。
+ */
+export function loadExcerpts(): Promise<string[]> {
+  if (!excerptsPromise) {
+    excerptsPromise = fetch(new URL('retrieval-excerpts.json', document.baseURI).href)
+      .then((res) => {
+        if (!res.ok) throw new Error(`原文片段加载失败（HTTP ${res.status}）`)
+        return res.json() as Promise<string[]>
+      })
+      .catch((err) => { excerptsPromise = null; throw err })
+  }
+  return excerptsPromise
+}
+
 export async function runRetrievalChannel(
   text: string,
   onProgress: (status: RetrievalChannelResult) => void,
 ): Promise<RetrievalChannelResult> {
   try {
-    onProgress({ status: 'loading', message: '正在加载语料基座（约 2.3 MB，仅首次，之后浏览器缓存）' })
+    onProgress({ status: 'loading', message: '正在加载语料基座（约 0.9 MB，仅首次，之后浏览器缓存）' })
     const index = await loadIndex()
     onProgress({ status: 'running', message: `正在本地检索 ${index.raw.docCount} 段真实语料的最近邻（不联网、不上传）` })
     // 给渲染让出一次事件循环，让进度文案可见

@@ -287,7 +287,7 @@ export function Methodology() {
               <div className="coef-row"><span>校准逻辑回归</span><span>0.930</span><span>0.859（分塌缩）</span><span>8 特征</span></div>
               <div className="coef-row"><span>手调规则引擎</span><span>0.515</span><span>0.223</span><span>词表</span></div>
               <p className="calibration-moral">
-                做法：把 <strong>6010 段 HC3 中文真实问答</strong>（人写 / ChatGPT 配对）用字符 bigram + 特征哈希 + TF-IDF 向量化，检索时算余弦相似度 top15，按相似度加权统计其中 AI 标签占比。全过程是确定性数学，浏览器本地完成，<strong>不下载模型、不联网、不上传文本</strong>；索引 gzip 约 2.3 MB，按需加载。
+                做法：把 <strong>6010 段 HC3 中文真实问答</strong>（人写 / ChatGPT 配对）用字符 bigram + 特征哈希 + TF-IDF 向量化，检索时算余弦相似度 top15，按相似度加权统计其中 AI 标签占比。全过程是确定性数学，浏览器本地完成，<strong>不下载模型、不联网、不上传文本</strong>；索引 gzip 约 911 KB 按需加载，原文片段另存、展开时才下载。
               </p>
             </article>
             <article className="crosscheck-card">
