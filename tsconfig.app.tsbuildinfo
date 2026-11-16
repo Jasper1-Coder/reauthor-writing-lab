@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/analyzer.tsx","./src/components/methodology.tsx","./src/components/results.tsx","./src/data/samples.ts","./src/lib/analyzer.ts","./src/lib/patterns.ts","./src/lib/report.ts","./src/lib/types.ts","./src/test/analyzer.test.ts"],"version":"5.7.3"}
