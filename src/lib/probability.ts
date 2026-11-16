@@ -19,6 +19,20 @@ import type { ProbabilityChannelResult } from './types'
 const MODEL_ID = 'onnx-community/Qwen2.5-0.5B-Instruct'
 const MAX_TOKENS = 384
 
+/**
+ * 推理库走 CDN 动态加载（多镜像兜底）：
+ * GitHub secret scanning 会把该库源码中的模型类名（如 Mistral3ForConditionalGeneration，
+ * 恰好 32 位字母数字）误判为 Mistral API key，导致包含它的提交无法推送到仓库，
+ * 因此不能把库文件自托管在本仓库 / GitHub Pages 上。ORT wasm 体积大且无此问题，
+ * 仍自托管在 /vendor/ort/ 并显式指定 wasmPaths。
+ */
+const LIBRARY_CANDIDATES = [
+  'https://fastly.jsdelivr.net/npm/@huggingface/transformers@4.3.2/dist/transformers.web.min.js',
+  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2/dist/transformers.web.min.js',
+  'https://gcore.jsdelivr.net/npm/@huggingface/transformers@4.3.2/dist/transformers.web.min.js',
+  'https://unpkg.com/@huggingface/transformers@4.3.2/dist/transformers.web.min.js',
+]
+
 export const PROBABILITY_MODEL_LABEL = 'Qwen2.5-0.5B（本地推理，约 350 MB，一次下载后浏览器缓存）'
 export const PROBABILITY_FORMULA =
   'score = clamp((0.40 − 突发度) / 0.20 × 100)，仅按突发度计分（HC3 校准 AUC 0.747）；困惑度只展示不计分——校准发现其方向与经典假设相反'
@@ -31,10 +45,26 @@ let pipelinePromise: Promise<{
 }> | null = null
 
 async function loadEngine(onProgress: ProgressCallback) {
-  const { env, AutoTokenizer, AutoModelForCausalLM } = await import('@huggingface/transformers')
-  // 默认走国内镜像；hf.co 在中国大陆不可直连
+  let transformers: typeof import('@huggingface/transformers') | null = null
+  let lastError: unknown = null
+  for (const candidate of LIBRARY_CANDIDATES) {
+    try {
+      transformers = await import(/* @vite-ignore */ candidate)
+      break
+    } catch (error) {
+      lastError = error
+    }
+  }
+  if (!transformers) {
+    throw new Error(`推理库从所有 CDN 均加载失败（需要能访问 jsdelivr 系 CDN）: ${String(lastError)}`)
+  }
+  const { env, AutoTokenizer, AutoModelForCausalLM } = transformers
+  // 默认走国内可达的模型镜像；hf.co 在中国大陆不可直连
   env.remoteHost = 'https://hf-mirror.com'
   env.allowLocalModels = false
+  // ORT wasm 自托管，与本库锁定的 onnxruntime-web 版本一致
+  const wasmEnv = env.backends.onnx.wasm
+  if (wasmEnv) wasmEnv.wasmPaths = new URL('vendor/ort/', document.baseURI).href
 
   const tokenizer = await AutoTokenizer.from_pretrained(MODEL_ID)
   const model = await AutoModelForCausalLM.from_pretrained(MODEL_ID, {
