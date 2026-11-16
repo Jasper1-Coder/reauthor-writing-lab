@@ -24,7 +24,7 @@ export function Methodology() {
           <div className="method-lead">
             <p className="eyebrow">OPEN METHODOLOGY</p>
             <h2 id="method-title">严谨，不是把话说满。<br /><em>是把边界说清。</em></h2>
-            <p>Turnitin、ZeroGPT、Pangram 给了交互参照，但我们不复制它们的“判决式叙事”。v0.2 做了三件它们不做的事：多条独立证据链交叉验证并公布分歧；用 HC3 中文公开数据集校准并如实公布误判率；提供可复核的浏览器本地神经通道（实验）。研究实现用于设计参照，不在浏览器里冒充运行 7B 大模型。</p>
+            <p>Turnitin、ZeroGPT、Pangram 给了交互参照，但我们不复制它们的“判决式叙事”。本站做了四件它们不做的事：多条独立证据链交叉验证并公布分歧；在 HC3 中文公开数据集上，既如实公布手调规则接近随机的误判率，也训练出有留出折误差数据的校准模型；提供可复核的浏览器本地神经通道（实验）；把每个系数、训练协议和边界全部公开，任何人可复现。研究实现用于设计参照，不在浏览器里冒充运行 7B 大模型。</p>
             <a className="text-link" href="https://github.com/Jasper1-Coder/reauthor-writing-lab" target="_blank" rel="noreferrer">查看完整源码与评分常量 <ArrowUpRight size={16} /></a>
           </div>
           <div className="method-principles">
@@ -151,7 +151,7 @@ export function Methodology() {
         <div className="calibration-section calibrated-model-section" id="calibrated-model">
           <div className="ledger-heading">
             <span>CALIBRATED MODEL · 校准模型通道</span>
-            <h3>从"承认接近随机"到"拿出 AUC 0.927"：我们把手调规则换成了受训练、受检验的模型。</h3>
+            <h3>从"承认接近随机"到"拿出 AUC {modelData.performance.crossValidatedAuc}"：我们把手调规则换成了受训练、受检验的模型。</h3>
             <p>
               在 {modelData.meta.dataset}。用分层 5 折交叉验证训练逻辑回归（8 个表层文体特征，标准化与拟合均只在训练折上进行），
               在从未参与训练的留出折上实测：

@@ -18,9 +18,12 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (report) {
-      window.setTimeout(() => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
-    }
+    if (!report) return
+    const timer = window.setTimeout(() => {
+      document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 80)
+    // 组件卸载或报告刷新时清除定时器，避免卸载后访问已销毁的 document。
+    return () => window.clearTimeout(timer)
   }, [report])
 
   useEffect(() => () => window.clearTimeout(toastTimer.current), [])

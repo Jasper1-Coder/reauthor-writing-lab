@@ -79,7 +79,7 @@ export function DefenseKit({ report, onToast }: DefenseKitProps) {
   }
 
   return (
-    <div className="defense-panel" role="tabpanel">
+    <div className="defense-panel" role="tabpanel" id="panel-defense" aria-labelledby="tab-defense">
       <div className="defense-intro">
         <Gavel size={22} />
         <div>

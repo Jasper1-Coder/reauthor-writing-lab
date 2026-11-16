@@ -5,7 +5,7 @@ import { FORMULAIC_RULES, GENERIC_RULES } from './patterns'
  * v0.5 校准模型通道：逻辑回归（8 个表层文体特征，系数全公开）。
  * 训练协议与实测成绩见 src/data/calibratedModel.json —— 由
  * scripts/train-model.ts 在 HC3-Chinese 上以分层 5 折交叉验证产生：
- * 留出折 AUC 0.927 ± 0.006（2026-11-16）。
+ * 留出折 AUC 0.930 ± 0.007（2026-11-16，权威值以 calibratedModel.json 为准）。
  *
  * 三条诚实边界（UI 必须同步展示）：
  *  1. 训练数据是 HC3 问答文本（2023 年 ChatGPT 生成），与学术论文存在领域差异，

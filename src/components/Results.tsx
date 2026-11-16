@@ -310,14 +310,14 @@ export function Results({ report, onToast }: ResultsProps) {
 
       <div className="diagnosis-workspace">
         <div className="diagnosis-tabs" role="tablist" aria-label="诊断报告视图">
-          <button role="tab" aria-selected={tab === 'sentences'} className={tab === 'sentences' ? 'active' : ''} onClick={() => setTab('sentences')}>逐句批注 <span>{report.stats.sentences}</span></button>
-          <button role="tab" aria-selected={tab === 'revision'} className={tab === 'revision' ? 'active' : ''} onClick={() => setTab('revision')}>修改路线 <span>03</span></button>
-          <button role="tab" aria-selected={tab === 'rubric'} className={tab === 'rubric' ? 'active' : ''} onClick={() => setTab('rubric')}>判分依据 <span>?</span></button>
-          <button role="tab" aria-selected={tab === 'defense'} className={tab === 'defense' ? 'active' : ''} onClick={() => setTab('defense')}>申诉工作台 <span>盾</span></button>
+          <button type="button" role="tab" id="tab-sentences" aria-controls="panel-sentences" aria-selected={tab === 'sentences'} className={tab === 'sentences' ? 'active' : ''} onClick={() => setTab('sentences')}>逐句批注 <span>{report.stats.sentences}</span></button>
+          <button type="button" role="tab" id="tab-revision" aria-controls="panel-revision" aria-selected={tab === 'revision'} className={tab === 'revision' ? 'active' : ''} onClick={() => setTab('revision')}>修改路线 <span>03</span></button>
+          <button type="button" role="tab" id="tab-rubric" aria-controls="panel-rubric" aria-selected={tab === 'rubric'} className={tab === 'rubric' ? 'active' : ''} onClick={() => setTab('rubric')}>判分依据 <span>?</span></button>
+          <button type="button" role="tab" id="tab-defense" aria-controls="panel-defense" aria-selected={tab === 'defense'} className={tab === 'defense' ? 'active' : ''} onClick={() => setTab('defense')}>申诉工作台 <span>盾</span></button>
         </div>
 
         {tab === 'sentences' && (
-          <div className="sentences-panel" role="tabpanel">
+          <div className="sentences-panel" role="tabpanel" id="panel-sentences" aria-labelledby="tab-sentences">
             <div className="filter-bar">
               <span><ListFilter size={15} /> 筛选批注</span>
               <div>
@@ -336,7 +336,7 @@ export function Results({ report, onToast }: ResultsProps) {
         )}
 
         {tab === 'revision' && (
-          <div className="revision-panel" role="tabpanel">
+          <div className="revision-panel" role="tabpanel" id="panel-revision" aria-labelledby="tab-revision">
             <div className="revision-intro"><span>REVISION, NOT EVASION</span><h3>目标不是骗过检测器，<br />是让论证真正变成你的。</h3><p>按“分数贡献 × 可修改性”排序。不要机械替换同义词，那只会把文章变成另一种模板。</p></div>
             <div className="revision-steps">
               {revisionPlan.map((item) => (
@@ -358,7 +358,7 @@ export function Results({ report, onToast }: ResultsProps) {
         )}
 
         {tab === 'rubric' && (
-          <div className="rubric-panel" role="tabpanel">
+          <div className="rubric-panel" role="tabpanel" id="panel-rubric" aria-labelledby="tab-rubric">
             <div className="formula-card">
               <span>TRANSPARENT FORMULA</span>
               <h3>每一分都能被重算。</h3>

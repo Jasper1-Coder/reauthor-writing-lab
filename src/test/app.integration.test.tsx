@@ -5,13 +5,9 @@ import { createRoot, type Root } from 'react-dom/client'
 import App from '../App'
 import { SAMPLE_ZH } from '../data/samples'
 
-async function waitFor(predicate: () => boolean, timeoutMs = 3000) {
-  const start = Date.now()
-  while (!predicate()) {
-    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
-    await new Promise((resolve) => setTimeout(resolve, 50))
-  }
-}
+// React 19 要求在 jsdom 中显式声明 act 环境，否则每次 act() 都会打印
+// "The current testing environment is not configured to support act(...)" 警告。
+;(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 describe('App integration (jsdom)', () => {
   it('loads a sample, runs analysis and renders the report', async () => {
@@ -40,7 +36,11 @@ describe('App integration (jsdom)', () => {
     const enabledButton = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('开始可解释分析')) as HTMLButtonElement
     expect(enabledButton.disabled).toBe(false)
     await act(async () => { enabledButton.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
-    await waitFor(() => Boolean(container.querySelector('#results')))
+    // 分析分 4 个阶段异步推进（约 800ms）。在 act 内用真实定时器等待其完成，
+    // 让所有 setState 都被 act 追踪，避免 act 警告；不能在此处轮询 DOM，
+    // 因为 act 结束前不会把更新提交到 DOM。
+    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 1200)) })
+    expect(container.querySelector('#results')).toBeTruthy()
 
     // Report surface: score ring, metrics, sentence annotations, rubric tab
     expect(container.querySelector('.score-number strong')?.textContent).toMatch(/^\d+$/)

@@ -359,7 +359,7 @@ export function analyzeText(text: string, options: AnalysisOptions): AnalysisRep
     crossValidation,
     sentenceAnalyses: buildSentenceAnalyses(sentences, language, averageLength, repetitionData.repeated),
     limitations: [
-      '手调规则部分未经过语料校准（HC3 上 AUC 仅 0.515），校准模型通道在 HC3-Chinese 留出折上 AUC 0.927，但训练域是问答文本而非学术论文，跨领域表现可能偏移。',
+      `手调规则部分未经过语料校准（HC3 上 AUC 仅 0.515），校准模型通道在 HC3-Chinese 留出折上 AUC ${CALIBRATED_MODEL_INFO.cvAuc}，但训练域是问答文本而非学术论文，跨领域表现可能偏移。`,
       '非母语写作、规范化学术文体、翻译文本与短文本可能出现类似特征，不得据此推定作者身份或学术不端。',
       '检测结果应服务于作者自我修改与师生对话，不应作为处罚、处分或提交判定的唯一依据。',
     ],
