@@ -88,6 +88,68 @@ export function buildMarkdownReport(report: AnalysisReport): string {
   return lines.join('\n')
 }
 
+/** 一条改写记录：学生本人改写的句子 + 复测结果 */
+export interface RewriteEntry {
+  sentenceId: number
+  original: string
+  draft: string
+  originalScore: number
+  draftScore: number
+  reason: string
+  hitsCleared: string[]
+}
+
+/**
+ * 生成"改写前后对照表"——它真正的价值不是分数，而是过程证据：
+ * 学生逐句记录自己为什么改、改成什么，向老师证明论证是逐步形成的。
+ */
+export function buildRewriteComparisonMarkdown(report: AnalysisReport, entries: RewriteEntry[]): string {
+  const totalDelta = entries.reduce((sum, entry) => sum + (entry.originalScore - entry.draftScore), 0)
+  const improved = entries.filter((entry) => entry.draftScore < entry.originalScore).length
+  const lines = [
+    '# ReAuthor · 改写前后对照表（过程证据）',
+    '',
+    `> 生成时间：${new Date().toLocaleString('zh-CN')}`,
+    `> 原报告：${report.version}｜原指数 ${report.score}/100（${report.levelLabel}）｜语言 ${report.language}`,
+    '',
+    '## 这份文件说明什么',
+    '',
+    '下表逐句记录了本人对高特征句子的手动改写、改写理由，以及用与原报告完全相同的规则复测后的特征值变化。',
+    '它用于向教师展示：论证是经过阅读、判断与修订逐步形成的，而不是一次成稿。',
+    '**请如实填写改写理由。** 特征值下降只反映表层文体信号，不等于内容质量提高，更不构成作者身份判定。',
+    '',
+    `本表共 ${entries.length} 句改写，其中 ${improved} 句特征值下降，累计下降 ${totalDelta} 分。`,
+    '',
+    '## 逐句对照',
+    '',
+  ]
+  entries.forEach((entry) => {
+    const delta = entry.draftScore - entry.originalScore
+    lines.push(
+      `### 第 ${entry.sentenceId} 句 · ${entry.originalScore} → ${entry.draftScore}（${delta > 0 ? '+' : ''}${delta}）`,
+      '',
+      `**原文**：${entry.original}`,
+      '',
+      `**我的改写**：${entry.draft}`,
+      '',
+      `**我为什么这样改**：${entry.reason || '（未填写）'}`,
+      '',
+      entry.hitsCleared.length ? `**消除的命中表达**：${entry.hitsCleared.join('、')}` : '**消除的命中表达**：无（本句未命中预设词表，改动主要体现在论证或证据上）',
+      '',
+    )
+  })
+  lines.push(
+    '## 使用边界',
+    '',
+    '- 本表是写作过程的自述材料，仅供师生沟通参考，不能单独证明作者身份。',
+    '- 教师应结合草稿、版本历史、课堂讨论等过程材料综合判断。',
+    '- 特征值来自公开的手调规则，不构成 AI 生成概率。',
+    '',
+    '由 ReAuthor · 重写权生成。检测不是终审，解释才是起点。',
+  )
+  return lines.join('\n')
+}
+
 export function downloadText(markdown: string, filename: string) {
   const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
   const url = URL.createObjectURL(blob)

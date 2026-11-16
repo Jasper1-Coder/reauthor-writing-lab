@@ -138,6 +138,8 @@ function buildSentenceAnalyses(
   language: Language,
   averageLength: number,
   repeated: Set<string>,
+  /** 节奏理由所用的"全文句数"，单句改写时传入原文字数以保持与原句同尺度 */
+  rhythmSentenceCount = sentences.length,
 ): SentenceAnalysis[] {
   const targetLanguages: Array<'zh' | 'en'> = language === 'mixed' ? ['zh', 'en'] : [language]
   return sentences.map((text, index) => {
@@ -168,7 +170,7 @@ function buildSentenceAnalyses(
       reasons.push('含有在全文中重复出现的连续短语')
       suggestions.push('合并重复信息，让本句只承担一个新功能：提出判断、提供证据或解释证据。')
     }
-    if (closeToAverage && sentences.length >= 5) reasons.push('句长接近全文均值，连续阅读时节奏可能较均匀')
+    if (closeToAverage && rhythmSentenceCount >= 5) reasons.push('句长接近全文均值，连续阅读时节奏可能较均匀')
     if (evidence.length > 0) strengths.push(`包含可核查线索：${[...new Set(evidence)].slice(0, 4).join('、')}`)
     if (/然而|但|不过|however|but|yet|although/i.test(text)) strengths.push('存在明确的转折或限定，论证并非单向罗列')
     if (evidence.length === 0 && score >= 30) {
@@ -364,4 +366,32 @@ export function analyzeText(text: string, options: AnalysisOptions): AnalysisRep
       '检测结果应服务于作者自我修改与师生对话，不应作为处罚、处分或提交判定的唯一依据。',
     ],
   }
+}
+
+/**
+ * 改写工作台专用：从原文构造"评分上下文"。
+ * 关键在于复用原文的重复短语集与句长均值，让学生改写稿与原句在同一尺度上比较——
+ * 否则单独一句文本没有"全文重复"概念，分数会失真。
+ */
+export interface ScoringContext {
+  language: Language
+  averageLength: number
+  repeated: Set<string>
+  sentenceCount: number
+}
+
+export function makeScoringContext(originalText: string, language: Language): ScoringContext {
+  const sentences = splitSentences(originalText)
+  const lengths = sentences.map((sentence) => measureSentence(sentence, language))
+  return {
+    language,
+    averageLength: mean(lengths),
+    repeated: repeatedPhraseData(originalText, language).repeated,
+    sentenceCount: sentences.length,
+  }
+}
+
+/** 用与逐句批注完全相同的规则，给学生的单句改写稿打分（id 固定为 1）。 */
+export function scoreSentenceDraft(draft: string, context: ScoringContext): SentenceAnalysis {
+  return buildSentenceAnalyses([draft], context.language, context.averageLength, context.repeated, context.sentenceCount)[0]
 }

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { buildMarkdownReport, downloadText, getRevisionPlan } from '../lib/report'
 import { DefenseKit } from './DefenseKit'
+import { RewriteWorkbench } from './RewriteWorkbench'
 import { evaluateSpread } from '../lib/crosscheck'
 import { PROBABILITY_FORMULA, PROBABILITY_MODEL_LABEL, runProbabilityChannel } from '../lib/probability'
 import calibrationData from '../data/calibration.json'
@@ -28,9 +29,10 @@ import type { AnalysisReport, ProbabilityChannelResult, SentenceAnalysis } from 
 interface ResultsProps {
   report: AnalysisReport
   onToast: (message: string) => void
+  onUseFullText: (text: string) => void
 }
 
-type Tab = 'sentences' | 'revision' | 'rubric' | 'defense'
+type Tab = 'sentences' | 'rewrite' | 'revision' | 'rubric' | 'defense'
 type Filter = 'all' | 'attention' | 'low'
 
 const languageNames = { zh: '中文', en: 'English', mixed: '中英混合' }
@@ -74,7 +76,7 @@ function SentenceRow({ sentence, expanded, onToggle }: { sentence: SentenceAnaly
   )
 }
 
-export function Results({ report, onToast }: ResultsProps) {
+export function Results({ report, onToast, onUseFullText }: ResultsProps) {
   const [tab, setTab] = useState<Tab>('sentences')
   const [filter, setFilter] = useState<Filter>('all')
   const [prob, setProb] = useState<ProbabilityChannelResult>({ status: 'idle', message: '' })
@@ -311,6 +313,7 @@ export function Results({ report, onToast }: ResultsProps) {
       <div className="diagnosis-workspace">
         <div className="diagnosis-tabs" role="tablist" aria-label="诊断报告视图">
           <button type="button" role="tab" id="tab-sentences" aria-controls="panel-sentences" aria-selected={tab === 'sentences'} className={tab === 'sentences' ? 'active' : ''} onClick={() => setTab('sentences')}>逐句批注 <span>{report.stats.sentences}</span></button>
+          <button type="button" role="tab" id="tab-rewrite" aria-controls="panel-rewrite" aria-selected={tab === 'rewrite'} className={tab === 'rewrite' ? 'active' : ''} onClick={() => setTab('rewrite')}>改写工作台 <span>动手</span></button>
           <button type="button" role="tab" id="tab-revision" aria-controls="panel-revision" aria-selected={tab === 'revision'} className={tab === 'revision' ? 'active' : ''} onClick={() => setTab('revision')}>修改路线 <span>03</span></button>
           <button type="button" role="tab" id="tab-rubric" aria-controls="panel-rubric" aria-selected={tab === 'rubric'} className={tab === 'rubric' ? 'active' : ''} onClick={() => setTab('rubric')}>判分依据 <span>?</span></button>
           <button type="button" role="tab" id="tab-defense" aria-controls="panel-defense" aria-selected={tab === 'defense'} className={tab === 'defense' ? 'active' : ''} onClick={() => setTab('defense')}>申诉工作台 <span>盾</span></button>
@@ -333,6 +336,10 @@ export function Results({ report, onToast }: ResultsProps) {
               ))}
             </div>
           </div>
+        )}
+
+        {tab === 'rewrite' && (
+          <RewriteWorkbench report={report} onToast={onToast} onUseFullText={onUseFullText} />
         )}
 
         {tab === 'revision' && (

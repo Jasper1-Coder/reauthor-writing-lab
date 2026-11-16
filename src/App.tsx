@@ -9,6 +9,7 @@ export default function App() {
   const [report, setReport] = useState<AnalysisReport | null>(null)
   const [toast, setToast] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [incomingText, setIncomingText] = useState<{ text: string; nonce: number } | undefined>(undefined)
   const toastTimer = useRef<number | undefined>(undefined)
 
   const showToast = (message: string) => {
@@ -75,8 +76,14 @@ export default function App() {
           </div>
         </section>
 
-        <Analyzer onAnalyzed={setReport} onToast={showToast} />
-        {report && <Results report={report} onToast={showToast} />}
+        <Analyzer onAnalyzed={setReport} onToast={showToast} incomingText={incomingText} />
+        {report && (
+          <Results
+            report={report}
+            onToast={showToast}
+            onUseFullText={(text) => setIncomingText({ text, nonce: Date.now() })}
+          />
+        )}
         <Methodology />
       </main>
 

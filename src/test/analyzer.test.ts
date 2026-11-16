@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { SAMPLE_EN, SAMPLE_HUMAN_ZH, SAMPLE_ZH } from '../data/samples'
 import { evaluateDisagreement } from '../data/defenseEvidence'
 import { buildDefenseDocument } from '../lib/defense'
-import { analyzeText, detectLanguage, splitSentences } from '../lib/analyzer'
+import { analyzeText, detectLanguage, makeScoringContext, scoreSentenceDraft, splitSentences } from '../lib/analyzer'
+import { buildRewriteComparisonMarkdown, type RewriteEntry } from '../lib/report'
 
 const options = { language: 'auto', documentType: 'academic' } as const
 
@@ -123,5 +124,41 @@ describe('defense kit', () => {
     expect(doc).toContain('| 知网 | 78% | 2026-11-16 |')
     expect(doc).toContain('只应填写真实信息')
     expect(doc).toContain('机器初检')
+  })
+})
+
+describe('rewrite workbench', () => {
+  it('scores a draft in the same context as the original sentence', () => {
+    const report = analyzeText(SAMPLE_ZH, options)
+    const context = makeScoringContext(SAMPLE_ZH, 'zh')
+    const target = report.sentenceAnalyses[0]
+    // 原句在"全文上下文"里复测，得分应与逐句批注里的原句得分一致
+    const rescored = scoreSentenceDraft(target.text, context)
+    expect(rescored.score).toBe(target.score)
+    // 一个具体、含证据的改写，特征值应不高于原模板句
+    const improved = scoreSentenceDraft('我在课堂笔记里记下：2023 年该软件的用户留存率由 41% 升至 58%。', context)
+    expect(improved.score).toBeLessThanOrEqual(target.score)
+    expect(improved.score).toBeGreaterThanOrEqual(0)
+  })
+
+  it('builds a rewrite comparison markdown as process evidence', () => {
+    const report = analyzeText(SAMPLE_ZH, options)
+    const entries: RewriteEntry[] = [{
+      sentenceId: 1,
+      original: '在当今社会，人工智能技术正在产生深远的影响。',
+      draft: '根据我记录的课堂数据，该工具使我们的检索时间减少了约三成。',
+      originalScore: 55,
+      draftScore: 24,
+      reason: '补上了具体来源和可核查的数据。',
+      hitsCleared: ['深远影响'],
+    }]
+    const doc = buildRewriteComparisonMarkdown(report, entries)
+    expect(doc).toContain('改写前后对照表')
+    expect(doc).toContain('过程证据')
+    expect(doc).toContain('我为什么这样改')
+    expect(doc).toContain('补上了具体来源和可核查的数据。')
+    expect(doc).toContain('55 → 24')
+    expect(doc).toContain('消除的命中表达')
+    expect(doc).toContain('不能单独证明作者身份')
   })
 })

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowRight,
   BookOpen,
@@ -19,11 +19,13 @@ import type { AnalysisReport, DocumentType, LanguagePreference } from '../lib/ty
 interface AnalyzerProps {
   onAnalyzed: (report: AnalysisReport) => void
   onToast: (message: string) => void
+  /** 由改写工作台回填的"改后全文"；nonce 变化即视为一次新的回填 */
+  incomingText?: { text: string; nonce: number }
 }
 
 const stages = ['识别语言与切分句子', '计算五项文体特征', '定位证据与生成建议', '整理可导出诊断报告']
 
-export function Analyzer({ onAnalyzed, onToast }: AnalyzerProps) {
+export function Analyzer({ onAnalyzed, onToast, incomingText }: AnalyzerProps) {
   const [text, setText] = useState('')
   const [language, setLanguage] = useState<LanguagePreference>('auto')
   const [documentType, setDocumentType] = useState<DocumentType>('academic')
@@ -38,6 +40,15 @@ export function Analyzer({ onAnalyzed, onToast }: AnalyzerProps) {
     characters: text.length,
     sentences: splitSentences(text).length,
   }), [text])
+
+  useEffect(() => {
+    if (!incomingText?.text) return
+    setText(incomingText.text)
+    setSampleName('改后全文（来自改写工作台）')
+    onToast('改后全文已填入，可重新分析对比修订效果')
+  // 仅当 nonce 变化时响应，避免其他 state 更新导致重复回填
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incomingText?.nonce])
 
   const loadSample = (id: string) => {
     const sample = SAMPLE_LIBRARY.find((doc) => doc.id === id)
