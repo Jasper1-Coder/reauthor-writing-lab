@@ -1,0 +1,188 @@
+{
+  "meta": {
+    "generatedAt": "2026-11-16",
+    "source": "johnson/AI-writing-detector-dataset (HuggingFace, Apache-2.0), zh 子集 test",
+    "sourceDocType": "中文期刊论文摘要（软件学报），真实人类原文 + DeepSeek 句级改写",
+    "construction": "按 doc_id 将句级样本聚合成段落级文本；v0=100% human，v8≈94% DeepSeek 改写句。16 篇 × 2 版本 = 32 段。",
+    "sampleCount": 32,
+    "humanCount": 16,
+    "aiCount": 16,
+    "humanZhRange": [
+      7688,
+      15847
+    ],
+    "trainDomain": "HC3-Chinese 问答文本（ChatGPT）",
+    "testDomain": "中文学术论文摘要（DeepSeek 改写）",
+    "whyItMatters": "训练域与应用域不同，是本站一直公开标注的边界；此测试用完全未见过的领域与生成器检验特征是否仍有效。"
+  },
+  "calibrated": {
+    "auc": 0.859,
+    "at50": {
+      "sensitivity": 0,
+      "specificity": 1,
+      "accuracy": 0.5,
+      "confusion": {
+        "tp": 0,
+        "tn": 16,
+        "fp": 0,
+        "fn": 16
+      }
+    },
+    "bestThreshold": {
+      "threshold": 1,
+      "acc": 0.875,
+      "sens": 0.75,
+      "spec": 1
+    },
+    "humanMean": 0,
+    "aiMean": 4.1,
+    "humanMax": 0,
+    "aiMin": 0
+  },
+  "ruleEngine": {
+    "auc": 0.223,
+    "at55": {
+      "sensitivity": 0,
+      "specificity": 1,
+      "accuracy": 0.5,
+      "confusion": {
+        "tp": 0,
+        "tn": 16,
+        "fp": 0,
+        "fn": 16
+      }
+    },
+    "humanMean": 21.6,
+    "aiMean": 18.5
+  },
+  "perDoc": [
+    {
+      "doc": "5684_a4575b",
+      "humanScore": 0,
+      "aiScore": 2,
+      "delta": 2,
+      "ruleHuman": 24,
+      "ruleAi": 20
+    },
+    {
+      "doc": "5689_1e653b",
+      "humanScore": 0,
+      "aiScore": 0,
+      "delta": 0,
+      "ruleHuman": 18,
+      "ruleAi": 18
+    },
+    {
+      "doc": "5739_92852a",
+      "humanScore": 0,
+      "aiScore": 1,
+      "delta": 1,
+      "ruleHuman": 18,
+      "ruleAi": 15
+    },
+    {
+      "doc": "5786_5ef821",
+      "humanScore": 0,
+      "aiScore": 0,
+      "delta": 0,
+      "ruleHuman": 18,
+      "ruleAi": 15
+    },
+    {
+      "doc": "5890_ec76e7",
+      "humanScore": 0,
+      "aiScore": 3,
+      "delta": 3,
+      "ruleHuman": 26,
+      "ruleAi": 20
+    },
+    {
+      "doc": "5997_87ac8d",
+      "humanScore": 0,
+      "aiScore": 11,
+      "delta": 11,
+      "ruleHuman": 26,
+      "ruleAi": 24
+    },
+    {
+      "doc": "6034_0a4f50",
+      "humanScore": 0,
+      "aiScore": 9,
+      "delta": 9,
+      "ruleHuman": 23,
+      "ruleAi": 21
+    },
+    {
+      "doc": "6073_e815cf",
+      "humanScore": 0,
+      "aiScore": 2,
+      "delta": 2,
+      "ruleHuman": 20,
+      "ruleAi": 17
+    },
+    {
+      "doc": "6110_2535fa",
+      "humanScore": 0,
+      "aiScore": 14,
+      "delta": 14,
+      "ruleHuman": 19,
+      "ruleAi": 15
+    },
+    {
+      "doc": "6112_64244c",
+      "humanScore": 0,
+      "aiScore": 0,
+      "delta": 0,
+      "ruleHuman": 22,
+      "ruleAi": 17
+    },
+    {
+      "doc": "6144_05c273",
+      "humanScore": 0,
+      "aiScore": 2,
+      "delta": 2,
+      "ruleHuman": 23,
+      "ruleAi": 19
+    },
+    {
+      "doc": "6225_cc25ae",
+      "humanScore": 0,
+      "aiScore": 0,
+      "delta": 0,
+      "ruleHuman": 26,
+      "ruleAi": 23
+    },
+    {
+      "doc": "6226_32ae91",
+      "humanScore": 0,
+      "aiScore": 18,
+      "delta": 18,
+      "ruleHuman": 22,
+      "ruleAi": 21
+    },
+    {
+      "doc": "6260_135db3",
+      "humanScore": 0,
+      "aiScore": 1,
+      "delta": 1,
+      "ruleHuman": 19,
+      "ruleAi": 17
+    },
+    {
+      "doc": "6287_255c03",
+      "humanScore": 0,
+      "aiScore": 1,
+      "delta": 1,
+      "ruleHuman": 21,
+      "ruleAi": 18
+    },
+    {
+      "doc": "6469_bd4916",
+      "humanScore": 0,
+      "aiScore": 1,
+      "delta": 1,
+      "ruleHuman": 20,
+      "ruleAi": 16
+    }
+  ]
+}

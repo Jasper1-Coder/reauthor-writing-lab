@@ -865,3 +865,22 @@ a { color: inherit; }
 .calibrated-strip { border-left-color: var(--green); }
 .calibrated-strip svg { color: var(--green); }
 .coef-row { grid-template-columns: 1.4fr 0.8fr 1.6fr 0.6fr; }
+
+/* ============ v0.5.1: 跨域验证区 ============ */
+.crossdomain-section { margin-top: 52px; }
+.crossdomain-chart {
+  margin-top: 22px;
+  padding: 20px 24px;
+  border: 1px solid var(--line);
+  background: var(--paper-raised);
+}
+.crossdomain-chart h4 { margin: 0 0 4px; font-family: var(--sans); font-size: 15px; color: var(--ink); }
+.crossdomain-chart-sub { margin: 0 0 16px; font-size: 12.5px; color: var(--ink-faint); }
+.crossdomain-bars { display: flex; flex-direction: column; gap: 7px; }
+.crossdomain-bar-row { display: grid; grid-template-columns: 54px 1fr 74px; align-items: center; gap: 10px; }
+.crossdomain-bar-label { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.crossdomain-bar-track { height: 9px; background: var(--line); position: relative; }
+.crossdomain-bar-track i { display: block; height: 100%; background: var(--green); transition: width 0.3s; }
+.crossdomain-bar-val { font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); text-align: right; }
+.crossdomain-chart + .calibration-disclosure { margin-top: 20px; }
+@media print { .crossdomain-chart { break-inside: avoid; } }

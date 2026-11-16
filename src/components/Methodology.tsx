@@ -2,6 +2,7 @@ import { ArrowUpRight, BookMarked, FlaskConical, Github, Scale, ShieldAlert, Swo
 import calibrationData from '../data/calibration.json'
 import redteamData from '../data/redteam.json'
 import modelData from '../data/calibratedModel.json'
+import crossDomain from '../data/crossDomainValidation.json'
 
 const sources = [
   { name: 'DetectGPT', repo: 'eric-mitchell/detect-gpt', note: '概率曲率；理解零样本检测的经典起点。' },
@@ -204,6 +205,71 @@ export function Methodology() {
             </ul>
             <p className="calibration-moral">
               这就是我们要的权威：<strong>不是宣称 99% 准确，而是把训练数据、测试协议、每一个系数和每一条边界都摊开，让任何人都能复现、都能质疑。</strong>
+            </p>
+          </div>
+        </div>
+
+        <div className="calibration-section crossdomain-section" id="crossdomain">
+          <div className="ledger-heading">
+            <span>CROSS-DOMAIN · 跨域验证</span>
+            <h3>把模型扔进它从没见过的学术文本——它露馅了，但没完全失灵。</h3>
+            <p>
+              上面那个 {modelData.performance.crossValidatedAuc} 是在训练域（HC3 问答文本）的留出折上取得的。但本站真正的用途是学术写作。
+              所以我们做了一件让数字难看的事：把训练时从未碰过的<strong>真实中文期刊论文摘要</strong>（软件学报 {crossDomain.meta.humanCount} 篇人写 vs DeepSeek 改写版 {crossDomain.meta.aiCount} 篇）
+              拿来做域外考试——领域不同、生成器不同（ChatGPT→DeepSeek），这是一场诚实的能力边界测试。
+            </p>
+          </div>
+          <div className="calibration-grid">
+            <article className="calibration-card headline">
+              <FlaskConical size={22} />
+              <strong>{crossDomain.calibrated.auc}</strong>
+              <span>校准模型跨域 AUC（训练域是 {modelData.performance.crossValidatedAuc}，明显下降）</span>
+            </article>
+            <article className="calibration-card">
+              <strong>{crossDomain.ruleEngine.auc}</strong>
+              <span>规则引擎跨域 AUC（低于 0.5 = 比抛硬币还差，方向颠倒）</span>
+            </article>
+            <article className="calibration-card">
+              <strong>{Math.round(crossDomain.calibrated.bestThreshold.acc * 100)}%</strong>
+              <span>把阈值降到 {crossDomain.calibrated.bestThreshold.threshold} 后的最佳准确率（但这是测试集拟合，见下方警告）</span>
+            </article>
+            <article className="calibration-card">
+              <strong>{crossDomain.meta.sampleCount} 段</strong>
+              <span>{crossDomain.meta.humanCount} 人写 + {crossDomain.meta.aiCount} AI 改写，逐篇可复核</span>
+            </article>
+          </div>
+          <div className="crossdomain-chart">
+            <h4>逐篇对照：AI 改写分 − 人写分（校准模型）</h4>
+            <p className="crossdomain-chart-sub">+ 表示这篇论文被改写后分数上升（判对方向）；0 表示无区分。{crossDomain.perDoc.filter((d) => d.delta > 0).length}/{crossDomain.perDoc.length} 篇方向正确。</p>
+            <div className="crossdomain-bars">
+              {crossDomain.perDoc.map((doc) => (
+                <div className="crossdomain-bar-row" key={doc.doc}>
+                  <span className="crossdomain-bar-label">{doc.doc.slice(0, 6)}</span>
+                  <div className="crossdomain-bar-track">
+                    <i style={{ width: `${Math.min(100, doc.aiScore * 5)}%` }} />
+                  </div>
+                  <span className="crossdomain-bar-val">{doc.humanScore} → {doc.aiScore}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="calibration-disclosure">
+            <h4>这次测试说了三句实话</h4>
+            <ul>
+              <li><strong>排序信号还在：</strong>校准模型跨域 AUC {crossDomain.calibrated.auc}，{crossDomain.perDoc.filter((d) => d.delta > 0).length}/{crossDomain.perDoc.length} 篇论文被 DeepSeek 改写后分数上升——它仍能感知"这段更像 AI 改写"。</li>
+              <li><strong>但绝对分数塌了：</strong>线上固定阈值 50 下灵敏度 {Math.round(crossDomain.calibrated.at50.sensitivity * 100)}%——学术摘要的统计特征与问答差异太大，分数整体被压到 0–18 分。这正是"换领域就可能失效"的实证，所以本站从不把单一分数当通用标准。</li>
+              <li><strong>规则引擎彻底反向：</strong>AUC {crossDomain.ruleEngine.auc}，AI 改写文本的平均分（{crossDomain.ruleEngine.aiMean}）反而低于人写（{crossDomain.ruleEngine.humanMean}）——这也是为什么 v0.5 起我们不再让它主导判分。</li>
+            </ul>
+            <h4 style={{ marginTop: 18 }}>为何不把阈值改成 {crossDomain.calibrated.bestThreshold.threshold} 来"救"分数？</h4>
+            <p>
+              在那 {crossDomain.meta.sampleCount} 段上调到阈值 {crossDomain.calibrated.bestThreshold.threshold} 确有 {Math.round(crossDomain.calibrated.bestThreshold.acc * 100)}% 准确率，
+              但那是<strong>拿测试集反复试出来的阈值</strong>——典型的测试集拟合，换个领域又会崩。我们宁可公开这个失败，也不伪造一个"学术场景也准"的假象。
+              真正要做的是在学术论文上重新训练与校准，而那需要独立的训练/测试集；这一步我们还没做，所以如实写着。
+            </p>
+            <p className="calibration-moral">
+              数据来源：<a href="https://huggingface.co/datasets/johnson/AI-writing-detector-dataset" target="_blank" rel="noreferrer">johnson/AI-writing-detector-dataset</a>（Apache-2.0，中文期刊论文子集 test）。
+              完整 32 段样本与逐篇分数在仓库 <code>crossdomain/academic_zh.jsonl</code> 和 <code>src/data/crossDomainValidation.json</code>；
+              运行 <code>npx tsx scripts/crossdomain-test.ts</code> 可一键复现。<strong>权威不是从不出错，是把出错的地方也摆出来。</strong>
             </p>
           </div>
         </div>
