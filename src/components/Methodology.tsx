@@ -3,6 +3,7 @@ import calibrationData from '../data/calibration.json'
 import redteamData from '../data/redteam.json'
 import modelData from '../data/calibratedModel.json'
 import crossDomain from '../data/crossDomainValidation.json'
+import { LM_REFERENCE } from '../lib/lmChannel'
 
 const sources = [
   { name: 'DetectGPT', repo: 'eric-mitchell/detect-gpt', note: '概率曲率；理解零样本检测的经典起点。' },
@@ -39,6 +40,58 @@ export function Methodology() {
             <article><BookMarked size={23} /><span>03</span><h3>修改而非规避</h3><p>建议指向论证、证据与风格，不提供“骗过检测器”的降率承诺，也不鼓励一键洗稿。</p></article>
           </div>
         </div>
+
+        <details className="method-fold" id="lm-channel" open>
+          <summary>
+            <span className="method-fold-kicker">核心 · 语言模型通道</span>
+            <strong>我们训练了两个语言模型：一个读真人写作，一个读 AI 写作。</strong>
+            <span className="method-fold-hint">不是调别人的 API，也不是黑箱百分比——字符 2-gram 双模型似然比，1.1MB 在浏览器里跑 →</span>
+          </summary>
+          <div className="method-fold-body">
+            <div className="calibration-section">
+              <div className="ledger-heading">
+                <span>THE MODEL · 模型卡</span>
+                <h3>判的不是「你是不是 AI」，是「这段文字更像哪种文风」。</h3>
+              </div>
+              <p>
+                训练语料来自 HC3 中英 12 个领域，清洗后 {LM_REFERENCE.trainedDocs.toLocaleString()} 篇真实文本。
+                我们分别训练两个字符级 2-gram 语言模型：一个只读真人答案，一个只读 AI 答案。
+                对任意文本计算它在两个模型下的平均对数概率之差（对数似然比），再用 Platt 标定到 0–100。
+                全部推理在你本机完成，文本不出浏览器。
+              </p>
+              <table className="lm-method-table">
+                <thead><tr><th>指标</th><th>结果</th><th>说明</th></tr></thead>
+                <tbody>
+                  <tr><td>域内留出集 AUC</td><td><strong>{LM_REFERENCE.holdoutAuc.toFixed(3)}</strong></td><td>{LM_REFERENCE.holdoutN.toLocaleString()} 篇，按题目哈希 + 近似重复聚类分组切分（并查集），同组不跨集</td></tr>
+                  <tr><td>5 折交叉验证</td><td><strong>{LM_REFERENCE.cvAuc.toFixed(3)} ± {LM_REFERENCE.cvAucStd.toFixed(3)}</strong></td><td>标定参数用折外预测拟合，不在测试集上挑</td></tr>
+                  <tr><td>宏平均 AUC</td><td><strong>{LM_REFERENCE.macroAuc.toFixed(3)}</strong></td><td>12 个领域等权，避免单一领域刷分</td></tr>
+                  <tr className="lm-row-warn"><td>学术论文跨域 AUC</td><td><strong>{LM_REFERENCE.crossDomainAuc !== null ? LM_REFERENCE.crossDomainAuc.toFixed(3) : '—'}</strong></td><td>n={LM_REFERENCE.crossDomainN}，等于抛硬币——本通道在论文场景失效</td></tr>
+                  <tr className="lm-row-warn"><td>阈值 50 灵敏度 / 特异度</td><td><strong>{(LM_REFERENCE.sensitivity * 100).toFixed(1)}% / {(LM_REFERENCE.specificity * 100).toFixed(1)}%</strong></td><td>约四分之一真人会被读到高分，这是硬边界</td></tr>
+                  {LM_REFERENCE.formatBaseline && (
+                    <tr className="lm-row-warn">
+                      <td>模型 vs「只看长度」基线</td>
+                      <td><strong>{LM_REFERENCE.formatBaseline.modelAuc.toFixed(3)} / {LM_REFERENCE.formatBaseline.lengthAuc.toFixed(3)}</strong></td>
+                      <td>
+                        {LM_REFERENCE.formatBaseline.domain} 域里，模型 AUC 反而低于「文本长度」这一个表层特征（差 {LM_REFERENCE.formatBaseline.gap.toFixed(3)}）——
+                        这部分判别力来自篇幅而非文风。红队审计要求披露，我们照写。
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+              <p className="calibration-moral">
+                <strong>把失效的地方也写出来，才算模型卡。</strong>
+                跨域只有 {LM_REFERENCE.crossDomainAuc !== null ? LM_REFERENCE.crossDomainAuc.toFixed(3) : '—'} 这件事，恰恰证明了本站一直在说的话：
+                任何单一百分比都不足以定性，包括我们自己训的这个。
+              </p>
+              <p className="lm-method-repro">
+                可复现：<code>npx tsx scripts/train-lm.ts</code> 训练并导出 · <code>npx tsx scripts/verify-lm.ts</code> 从产物独立复算 AUC（与训练期报告差 &lt;0.001）·{' '}
+                <code>npx tsx scripts/audit-lm-recompute.ts</code> 第二套独立复算（不 import 本站任何解析代码）。
+                产物 {LM_REFERENCE.sizeMB}MB，gzip 后 {LM_REFERENCE.gzKB}KB，纯 JS 推理，不联网。
+              </p>
+            </div>
+          </div>
+        </details>
 
         <details className="method-fold" id="calibration">
           <summary>

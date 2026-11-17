@@ -1316,3 +1316,104 @@ a { color: inherit; }
 .fusion-caveat { display: flex; gap: 7px; align-items: flex-start; margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line-strong); font-size: 12.5px; line-height: 1.7; color: var(--ink-faint); }
 .fusion-caveat > svg { flex-shrink: 0; margin-top: 2px; }
 @media (max-width: 620px) { .fusion-strength-meta { margin-left: 0; grid-template-columns: 1fr 1fr; } }
+
+/* ============ v0.13: 语言模型通道（自训模型读数） ============ */
+.lm-card {
+  margin-top: 26px;
+  border: 1.5px solid var(--ink);
+  background: var(--paper-raised);
+  padding: 22px 24px 20px;
+}
+.lm-card-loading, .lm-card-failed {
+  display: flex; align-items: flex-start; gap: 10px;
+  border-style: dashed; border-color: var(--line-strong);
+  font-size: 13.5px; color: var(--ink-soft); line-height: 1.65;
+}
+.lm-card-loading > svg, .lm-card-failed > svg { flex-shrink: 0; margin-top: 2px; color: var(--green-deep); }
+.lm-card-failed > svg { color: var(--orange); }
+.lm-spin { animation: lm-rotate 1.1s linear infinite; }
+@keyframes lm-rotate { to { transform: rotate(360deg); } }
+
+.lm-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.lm-head-title { display: flex; gap: 11px; align-items: flex-start; }
+.lm-head-title > svg { color: var(--green-deep); flex-shrink: 0; margin-top: 2px; }
+.lm-head-title h3 { font-family: var(--serif-en); font-size: 20px; line-height: 1.2; }
+.lm-head-title p { font-size: 12.5px; color: var(--ink-faint); margin-top: 4px; max-width: 560px; line-height: 1.55; }
+.lm-badge {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em;
+  padding: 4px 9px; border-radius: 3px;
+  background: rgba(29, 158, 117, 0.13); color: var(--green-deep);
+  white-space: nowrap;
+}
+
+.lm-body { display: flex; flex-wrap: wrap; gap: 26px; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+.lm-score { display: flex; flex-direction: column; min-width: 150px; }
+.lm-score strong { font-family: var(--mono); font-size: 52px; line-height: 1; }
+.lm-score span { font-family: var(--mono); font-size: 14px; color: var(--ink-faint); margin-top: 2px; }
+.lm-score em { font-style: normal; font-size: 13px; font-weight: 600; margin-top: 8px; line-height: 1.4; }
+.lm-score-high strong, .lm-score-high em { color: #b0342f; }
+.lm-score-mid strong, .lm-score-mid em { color: #8a5a13; }
+.lm-score-low strong, .lm-score-low em { color: var(--green-deep); }
+
+.lm-explain { flex: 1 1 320px; min-width: 260px; }
+.lm-explain > p { font-size: 13.5px; line-height: 1.75; color: var(--ink-soft); }
+.lm-probs { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.lm-probs > div { display: flex; align-items: baseline; gap: 10px; justify-content: space-between; }
+.lm-probs span { font-size: 12.5px; color: var(--ink-soft); }
+.lm-probs strong { font-family: var(--mono); font-size: 14px; color: var(--ink); }
+.lm-probs-note { font-size: 12.5px; color: var(--ink-faint); line-height: 1.6; border-left: 2px solid var(--line-strong); padding-left: 10px; }
+
+.lm-sentences { margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--line-strong); }
+.lm-sentences h4 { font-size: 13.5px; color: var(--ink-soft); font-weight: 600; }
+.lm-sentences ol { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.lm-sentences li { display: flex; gap: 12px; align-items: flex-start; }
+.lm-sent-score {
+  font-family: var(--mono); font-size: 13px; font-weight: 700;
+  min-width: 34px; text-align: center; padding: 3px 0;
+  border-radius: 3px; flex-shrink: 0;
+}
+.lm-sent-high { background: rgba(226, 75, 74, 0.12); color: #b0342f; }
+.lm-sent-mid { background: rgba(186, 117, 23, 0.14); color: #8a5a13; }
+.lm-sent-low { background: rgba(29, 158, 117, 0.13); color: var(--green-deep); }
+.lm-sentences li p { font-size: 13px; line-height: 1.7; color: var(--ink-soft); }
+
+.lm-metrics { display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.lm-metrics > div { display: flex; flex-direction: column; gap: 2px; }
+.lm-metrics span { font-size: 11.5px; color: var(--ink-faint); }
+.lm-metrics strong { font-family: var(--mono); font-size: 16px; }
+.lm-metrics em { font-style: normal; font-size: 11px; color: var(--ink-faint); }
+.lm-metric-warn strong { color: #b0342f; }
+
+.lm-caveats { margin-top: 16px; border: 1px dashed var(--line-strong); }
+.lm-caveats > summary {
+  list-style: none; cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 14px; font-size: 13px; color: var(--ink-soft);
+}
+.lm-caveats > summary::-webkit-details-marker { display: none; }
+.lm-caveats > summary svg:first-child { color: var(--orange); flex-shrink: 0; }
+.lm-caveats > summary span { flex: 1; }
+.lm-caveats[open] > summary .tech-chevron { transform: rotate(180deg); }
+.lm-caveats ul { padding: 0 16px 14px 32px; display: flex; flex-direction: column; gap: 8px; }
+.lm-caveats li { font-size: 12.5px; line-height: 1.7; color: var(--ink-soft); }
+
+@media (max-width: 620px) {
+  .lm-score strong { font-size: 42px; }
+  .lm-card { padding: 18px 16px; }
+}
+
+/* ============ v0.13: 方法页模型卡 ============ */
+.lm-method-table { width: 100%; border-collapse: collapse; margin: 16px 0 4px; font-size: 13px; }
+.lm-method-table th, .lm-method-table td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.lm-method-table th { font-size: 11.5px; font-family: var(--mono); letter-spacing: 0.04em; color: var(--ink-faint); border-bottom: 1px solid var(--line-strong); }
+.lm-method-table td:first-child { white-space: nowrap; color: var(--ink-soft); }
+.lm-method-table td strong { font-family: var(--mono); font-size: 14px; color: var(--ink); }
+.lm-method-table td:last-child { font-size: 12.5px; color: var(--ink-soft); line-height: 1.6; }
+.lm-row-warn td strong { color: #b0342f; }
+.lm-method-repro { margin-top: 14px; font-size: 12.5px; line-height: 1.8; color: var(--ink-soft); }
+.lm-method-repro code { font-family: var(--mono); font-size: 11.5px; background: rgba(23, 33, 27, 0.05); padding: 1px 5px; }
+@media (max-width: 620px) {
+  .lm-method-table { font-size: 12px; }
+  .lm-method-table th, .lm-method-table td { padding: 8px 6px; }
+  .lm-method-table td:first-child { white-space: normal; }
+}

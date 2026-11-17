@@ -1,0 +1,153 @@
+{
+  "meta": {
+    "model": "字符 2-gram 双语言模型（真人 / AI 各一个）+ Platt 标定",
+    "dataset": "HC3（Chris 等，Hello-SimpleAI，CC BY-SA 4.0）中英 12 个领域；清洗后 43228 篇",
+    "protocol": "按 question 哈希 + 近似重复聚类分组（并查集），同组不跨集，按文档数切 80/20；5 折交叉验证；标定参数用 OOF 预测拟合，不用测试集",
+    "filters": "剔除 <40 字符碎片、拒答模板与接口报错模板（network error / token expired / too many requests 等）。单域单类上限 3000 篇 / 2.5M 字符，防止口语英文子集从体积上淹没中文。",
+    "split": "并查集连通分量 22068 组；同题合并 20622 次、完全相同文本 485 次、近似重复（8-gram J>0.7，三组 banding 并集）53 次；留出 8645 / 训练 34583",
+    "trainedAt": "2026-11-17",
+    "reproducible": "npx tsx scripts/train-lm.ts",
+    "audited": "docs/model-audit.md（独立复算 scripts/audit-lm-recompute.ts + 泄漏审查 scripts/audit-lm-leak.ts）"
+  },
+  "inDomain": {
+    "holdoutAuc": 0.943,
+    "holdoutN": 8645,
+    "cvAucMean": 0.944,
+    "cvAucStd": 0.003,
+    "folds": [
+      0.95,
+      0.942,
+      0.941,
+      0.943,
+      0.942
+    ],
+    "macroAucOverDomains": 0.945,
+    "perDomain": [
+      {
+        "domain": "finance",
+        "n": 887,
+        "ai": 407,
+        "human": 480,
+        "auc": 0.935,
+        "lenAuc": 0.725
+      },
+      {
+        "domain": "medicine",
+        "n": 454,
+        "ai": 216,
+        "human": 238,
+        "auc": 0.982,
+        "lenAuc": 0.939
+      },
+      {
+        "domain": "open_qa",
+        "n": 847,
+        "ai": 606,
+        "human": 241,
+        "auc": 0.847,
+        "lenAuc": 0.94
+      },
+      {
+        "domain": "reddit_eli5",
+        "n": 1151,
+        "ai": 528,
+        "human": 623,
+        "auc": 0.998,
+        "lenAuc": 0.807
+      },
+      {
+        "domain": "wiki_csai",
+        "n": 361,
+        "ai": 180,
+        "human": 181,
+        "auc": 0.764,
+        "lenAuc": 0.503
+      },
+      {
+        "domain": "zh_baike",
+        "n": 1252,
+        "ai": 632,
+        "human": 620,
+        "auc": 0.942,
+        "lenAuc": 0.663
+      },
+      {
+        "domain": "zh_finance",
+        "n": 383,
+        "ai": 262,
+        "human": 121,
+        "auc": 0.999,
+        "lenAuc": 0.822
+      },
+      {
+        "domain": "zh_law",
+        "n": 125,
+        "ai": 85,
+        "human": 40,
+        "auc": 0.991,
+        "lenAuc": 0.991
+      },
+      {
+        "domain": "zh_medicine",
+        "n": 390,
+        "ai": 192,
+        "human": 198,
+        "auc": 0.999,
+        "lenAuc": 0.892
+      },
+      {
+        "domain": "zh_nlpcc_dbqa",
+        "n": 776,
+        "ai": 603,
+        "human": 173,
+        "auc": 0.896,
+        "lenAuc": 0.778
+      },
+      {
+        "domain": "zh_open_qa",
+        "n": 1252,
+        "ai": 609,
+        "human": 643,
+        "auc": 0.989,
+        "lenAuc": 0.752
+      },
+      {
+        "domain": "zh_psychology",
+        "n": 767,
+        "ai": 192,
+        "human": 575,
+        "auc": 1,
+        "lenAuc": 0.743
+      }
+    ],
+    "formatBaseline": {
+      "domain": "open_qa",
+      "modelAuc": 0.8474932555496214,
+      "lengthAuc": 0.939529326376621,
+      "gap": 0.092
+    },
+    "atThreshold50": {
+      "sensitivity": 0.946,
+      "specificity": 0.727
+    }
+  },
+  "crossDomain": {
+    "n": 32,
+    "ai": 16,
+    "human": 16,
+    "auc": 0.49609375,
+    "scoreMin": 7,
+    "scoreMax": 25
+  },
+  "caveats": [
+    "域内高 AUC 部分来自文体差异（问答口语 vs ChatGPT 书面体），不代表能识别 2026 年的新模型。",
+    "训练语料的 AI 文本是 2023 年初的 ChatGPT（gpt-3.5 一代），与当前模型文风已有差距。",
+    "学术论文属于跨域场景，本通道读数不可作为定性依据，只能作为风格参考。",
+    "语言模型读数测量的是「与训练语料的文风接近程度」，不是「作者是否使用 AI」。",
+    "阈值 50 时特异度 72.7%：每 4 个真人里约有 1 个会被读到高分（数据来自留出集 8,645 篇）。",
+    "在 open_qa 这一域，模型 AUC 0.847 反而低于「只看文本长度」这一个表层特征的 0.940——说明部分判别力可被排版/篇幅解释，不是纯文风。",
+    "个别口语域（如 reddit_eli5）AUC 接近 1.000，主要来自拼写、俚语与书面体的差异（该域最强单表层特征仅 0.798），属数据集特性，不能外推到学生作文。",
+    "红队审计曾发现「同题跨集 36 题 + 771 对近似重复跨集」，已改为按题目哈希与近似重复聚类分组后重训，当前切分不复现该问题（见 docs/model-audit.md）。",
+    "内部红队探针（scripts/probe-student-style.ts，6 段手写中文学生文风）实测：5 段被判 0–2 分，1 段非母语英文被判 54 分；4 段「AI 腔」中文短段也只在 3–38 分。短篇中文写作上本通道对人和 AI 都很少给高分——**低分不等于清白**，别把它当免责证明。"
+  ]
+}

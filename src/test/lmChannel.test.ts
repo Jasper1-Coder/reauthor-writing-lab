@@ -1,0 +1,81 @@
+import { describe, expect, it } from 'vitest'
+import { LM_MASK, bigramBucket } from '../lib/lmText'
+import { calibrateDelta, scoreLmText, type LmModel } from '../lib/lmChannel'
+
+/**
+ * 用构造的微型模型验证通道的核心行为。
+ *
+ * 不去加载真实的 1.1MB 产物：单元测试要跑得快、跑得稳，
+ * 真实产物的正确性由 scripts/verify-lm.ts 独立复算负责（那是另一层验收）。
+ */
+
+const VOCAB = ['甲', '乙', '丙']
+
+function makeModel(boost: [string, string] | null): {
+  index: Map<number, number>
+  unigram: Float32Array
+  table: Uint8Array
+  total: number
+} {
+  const index = new Map<number, number>()
+  VOCAB.forEach((c, i) => index.set(c.codePointAt(0)!, i))
+  const unigram = new Float32Array(VOCAB.length).fill(1_000_000)
+  const table = new Uint8Array(1 << 19)
+  if (boost) {
+    // q=189 → 反量化约 4.9e5，配合 unigram 1e6 得到约 0.49 的 bigram 概率
+    table[bigramBucket(boost[0], boost[1], LM_MASK)] = 189
+  }
+  return { index, unigram, table, total: 3_000_000 }
+}
+
+// 人类模型偏爱「甲甲」，AI 模型偏爱「乙乙」
+const model: LmModel = {
+  human: makeModel(['甲', '甲']),
+  ai: makeModel(['乙', '乙']),
+}
+
+const humanish = '甲甲甲甲甲甲甲甲甲甲甲甲甲甲甲甲甲甲甲甲'
+const aiish = '乙乙乙乙乙乙乙乙乙乙乙乙乙乙乙乙乙乙乙乙'
+
+describe('语言模型通道', () => {
+  it('AI 文风文本的读数高于真人文风文本', () => {
+    const a = scoreLmText(model, aiish)
+    const h = scoreLmText(model, humanish)
+    expect(a.available).toBe(true)
+    expect(h.available).toBe(true)
+    expect(a.delta).toBeGreaterThan(0)
+    expect(h.delta).toBeLessThan(0)
+    expect(a.score).toBeGreaterThan(h.score)
+  })
+
+  it('分数被限制在 0–100 且随似然比单调递增', () => {
+    const scores = [-3, -1, 0, 1, 3].map((d) => calibrateDelta(d))
+    for (const s of scores) {
+      expect(s).toBeGreaterThanOrEqual(0)
+      expect(s).toBeLessThanOrEqual(100)
+    }
+    for (let i = 1; i < scores.length; i++) {
+      expect(scores[i]).toBeGreaterThanOrEqual(scores[i - 1])
+    }
+  })
+
+  it('文本过短时拒判，不返回读数', () => {
+    const r = scoreLmText(model, '甲甲乙')
+    expect(r.available).toBe(false)
+    expect(r.sentences).toEqual([])
+  })
+
+  it('句级读数按分数降序，便于学生先看最像的几句', () => {
+    const text = `${aiish}。${humanish}。${aiish}。`
+    const r = scoreLmText(model, text)
+    expect(r.available).toBe(true)
+    const scores = r.sentences.map((s) => s.score)
+    expect(scores.length).toBeGreaterThan(0)
+    expect([...scores].sort((x, y) => y - x)).toEqual(scores)
+  })
+
+  it('句间波动为非负数（突发度指标）', () => {
+    const r = scoreLmText(model, `${aiish}。${humanish}。${aiish}。`)
+    expect(r.burstiness).toBeGreaterThanOrEqual(0)
+  })
+})

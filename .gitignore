@@ -7,4 +7,7 @@ coverage
 
 # raw dataset is downloadable, only the sampled subset is committed
 calibration/raw/
+# 派生产物：v3 语料（213MB）与训练/留出切分（含原文），可脚本重建，不入库
+calibration/corpus/
+calibration/lm/
 .workbuddy/

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { buildMarkdownReport, downloadText, getRevisionPlan } from '../lib/report'
 import { DefenseKit } from './DefenseKit'
+import { LmChannelCard } from './LmChannelCard'
 import { RewriteWorkbench } from './RewriteWorkbench'
 import { evaluateSpread } from '../lib/crosscheck'
 import { RETRIEVAL_CORPUS_LABEL, RETRIEVAL_FORMULA, loadExcerpts, runRetrievalChannel } from '../lib/retrieval'
@@ -350,6 +351,8 @@ export function Results({ report, previousReport, onToast, onUseFullText }: Resu
           <p className="comparison-legend"><i className="cmp-before" /> 改前 <i className="cmp-after" /> 改后 · 深色为改后读数</p>
         </section>
       )}
+
+      <LmChannelCard text={report.originalText} />
 
       <details className="tech-details">
         <summary>
