@@ -536,9 +536,11 @@ const SPLIT_DIR = path.join(ROOT, 'calibration', 'lm')
 fs.mkdirSync(SPLIT_DIR, { recursive: true })
 const dump = (arr: Doc[], name: string) => fs.writeFileSync(path.join(SPLIT_DIR, name),
   arr.map((d) => JSON.stringify({ id: d.id, group: d.group, q: d.q, label: d.label, domain: d.domain, origin: d.origin, text: d.text })).join('\n'))
-dump(holdDocs, 'holdout.jsonl')
-dump(trainDocs, 'train.jsonl')
-fs.writeFileSync(path.join(SPLIT_DIR, 'split.json'), JSON.stringify({
+// 两种方言各存一套切分：否则后训练的方言会覆盖前一个的留出集，
+// 让 verify-lm 拿 A 的产物去对 B 的留出集（实测会算出 0.4999 这种假不一致）。
+dump(holdDocs, `holdout${OUT_SUFFIX}.jsonl`)
+dump(trainDocs, `train${OUT_SUFFIX}.jsonl`)
+fs.writeFileSync(path.join(SPLIT_DIR, `split${OUT_SUFFIX}.json`), JSON.stringify({
   seed: SEED,
   method: '同题哈希 ∪ 完全相同文本 ∪ 三组 banding 并集 J>0.7 近重复聚类（并查集）；按文档数切 20%',
   groups: grp.roots,

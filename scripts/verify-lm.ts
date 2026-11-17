@@ -12,10 +12,14 @@ import path from 'node:path'
 import { DEQUANT, LM_MASK, LM_W2, LM_W1, bigramBucket, normalizeLm } from '../src/lib/lmText'
 
 const ROOT = process.cwd()
-const BIN = path.join(ROOT, 'public', 'lm-char2.bin')
-const HOLDOUT = path.join(ROOT, 'calibration', 'lm', 'holdout.jsonl')
-const META = path.join(ROOT, 'src', 'data', 'lmModel.json')
-const VALID = path.join(ROOT, 'src', 'data', 'lmValidation.json')
+// --modern 验证现代方言产物（各有一套留出集，不能混用）
+const MODERN = process.argv.includes('--modern')
+const SUFFIX = MODERN ? '-modern' : ''
+const BIN = path.join(ROOT, 'public', `lm-char2${SUFFIX}.bin`)
+const HOLDOUT = path.join(ROOT, 'calibration', 'lm', `holdout${SUFFIX}.jsonl`)
+const META = path.join(ROOT, 'src', 'data', `lmModel${MODERN ? 'Modern' : ''}.json`)
+const VALID = path.join(ROOT, 'src', 'data', `lmValidation${MODERN ? 'Modern' : ''}.json`)
+console.log(`验证方言：${MODERN ? '现代模型（2025–26）' : '2023 ChatGPT'} → lm-char2${SUFFIX}.bin`)
 
 interface Parsed { index: Map<number, number>; unigram: Float32Array; table: Uint8Array; total: number }
 
@@ -97,7 +101,7 @@ const rows = fs.readFileSync(HOLDOUT, 'utf-8').trim().split('\n').filter(Boolean
  * 切分自检（v0.13.0 红队审计后补）：训练脚本落盘了 train.jsonl，
  * 这里直接对账 group 是否真的不重叠。只信 split.json 的自述是不够的。
  */
-const TRAIN = path.join(ROOT, 'calibration', 'lm', 'train.jsonl')
+const TRAIN = path.join(ROOT, 'calibration', 'lm', `train${SUFFIX}.jsonl`)
 if (fs.existsSync(TRAIN)) {
   const trainGroups = new Set<string>()
   const trainIds = new Set<string>()
