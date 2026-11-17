@@ -1,0 +1,34 @@
+{
+  "format": "RALM-v1",
+  "file": "lm-char2-modern.bin",
+  "aiDialect": "modern",
+  "order": 2,
+  "bits": 19,
+  "tableSize": 524288,
+  "models": [
+    {
+      "name": "human",
+      "vocab": 4725,
+      "chars": 6764141
+    },
+    {
+      "name": "ai",
+      "vocab": 2877,
+      "chars": 404721
+    }
+  ],
+  "interpolation": {
+    "bigram": 0.8,
+    "unigram": 0.2
+  },
+  "calibration": {
+    "mean": -0.9176,
+    "std": 0.6181,
+    "a": 2.4306,
+    "b": -2.0381
+  },
+  "sizeBytes": 1109416,
+  "sizeGzBytes": 293294,
+  "trainedAt": "2026-11-17",
+  "seed": 20261117
+}

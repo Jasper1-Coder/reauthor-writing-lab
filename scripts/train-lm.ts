@@ -33,9 +33,19 @@ import {
 const ROOT = process.cwd()
 const RAW = path.join(ROOT, 'calibration', 'raw')
 const ACADEMIC = path.join(ROOT, 'crossdomain', 'academic_zh.jsonl')
-const OUT_BIN = path.join(ROOT, 'public', 'lm-char2.bin')
-const OUT_META = path.join(ROOT, 'src', 'data', 'lmModel.json')
-const OUT_VALID = path.join(ROOT, 'src', 'data', 'lmValidation.json')
+/**
+ * AI_FROM 决定这一版模型的 AI 类由谁构成：
+ *   'chatgpt2023' = 只用 HC3 原生的 2023 ChatGPT（v0.13 的口径）
+ *   'modern'      = 只用 2025–26 现代模型（同题重生成）
+ *   'both'        = 混合（会互相稀释，实测顾此失彼）
+ * 线上同时加载两个版本的产物，各算一个读数，取更接近的那个——
+ * 因为「AI 文风」在 2026 年已经是两种方言，一个模型装不下。
+ */
+const AI_FROM = (process.env.AI_FROM ?? 'both') as 'chatgpt2023' | 'modern' | 'both'
+const OUT_SUFFIX = process.env.OUT_SUFFIX ?? (AI_FROM === 'modern' ? '-modern' : '')
+const OUT_BIN = path.join(ROOT, 'public', `lm-char2${OUT_SUFFIX}.bin`)
+const OUT_META = path.join(ROOT, 'src', 'data', `lmModel${OUT_SUFFIX ? 'Modern' : ''}.json`)
+const OUT_VALID = path.join(ROOT, 'src', 'data', `lmValidation${OUT_SUFFIX ? 'Modern' : ''}.json`)
 
 const SEED = 20261117
 const MAX_DOCS_PER_CELL = 3000 // 每个 (domain,label) 的文档上限，防单一域淹没
@@ -58,7 +68,7 @@ function shuffle<T>(arr: readonly T[], rnd: () => number): T[] {
   return out
 }
 
-interface Doc { id: string; group: string; q: string; domain: string; label: 0 | 1; text: string }
+interface Doc { id: string; group: string; q: string; domain: string; label: 0 | 1; text: string; origin: 'hc3' | 'modern' }
 
 function readJsonl(file: string): Array<Record<string, unknown>> {
   if (!fs.existsSync(file)) return []
@@ -107,39 +117,72 @@ function isJunk(text: string): boolean {
 }
 
 function loadCorpus(): { docs: Doc[]; stats: Record<string, number> } {
-  const stats = { raw: 0, tooShort: 0, refusal: 0, junk: 0, kept: 0 }
+  const stats: Record<string, number> = { raw: 0, tooShort: 0, refusal: 0, junk: 0, kept: 0, modern: 0, otherDialect: 0 }
   const cells = new Map<string, Doc[][]>()
   for (const f of fs.readdirSync(RAW)) {
     if (!f.endsWith('.jsonl')) continue
-    const domain = f.replace('.jsonl', '')
+    const fileDomain = f.replace('.jsonl', '')
     readJsonl(path.join(RAW, f)).forEach((row, i) => {
+      // 现代模型语料（scripts/gen-modern-ai.ts 生成）自带 source_domain，
+      // 必须挂回原域——否则同一问题的三种答案会落到不同 domain，
+      // 分组键 `${domain}|${question}` 就合并不了，等于重造 v0.13 被红队打回的「同题跨集」。
+      const domain = typeof row.source_domain === 'string' ? row.source_domain : fileDomain
       const group = `${domain}#${i}`
       const q = typeof row.question === 'string' ? row.question : ''
-      const push = (text: string, label: 0 | 1, k: number) => {
+      const push = (text: string, label: 0 | 1, k: number, origin: 'hc3' | 'modern') => {
         stats.raw++
+        // 方言筛选：真人侧永远保留（两种方言共用同一个真人模型），只筛 AI 侧
+        if (label === 1 && AI_FROM === 'chatgpt2023' && origin === 'modern') { stats.otherDialect++; return }
+        if (label === 1 && AI_FROM === 'modern' && origin === 'hc3') { stats.otherDialect++; return }
         if (typeof text !== 'string') return
         const t = text.trim()
         if (t.length < MIN_CHARS) { stats.tooShort++; return }
         if (isRefusal(t)) { stats.refusal++; return }
         if (isJunk(t)) { stats.junk++; return }
-        const key = `${domain}|${label}`
+        // 配额按 origin 分开算：否则现代模型样本会被同域的 2023 ChatGPT 样本挤掉，
+        // 加了几百条也等于没加（这是最容易假装修好的地方）。
+        const key = `${domain}|${label}|${origin}`
         if (!cells.has(key)) cells.set(key, [[]])
-        cells.get(key)![0].push({ id: `${group}-${label}-${k}`, group, q, domain, label, text: t })
+        cells.get(key)![0].push({ id: `${group}-${label}-${origin}-${k}`, group, q, domain, label, text: t, origin })
+        if (origin === 'modern') stats.modern++
       }
-      ;((row.human_answers as string[]) ?? []).forEach((t, k) => push(t, 0, k))
-      ;((row.chatgpt_answers as string[]) ?? []).forEach((t, k) => push(t, 1, k))
+      ;((row.human_answers as string[]) ?? []).forEach((t, k) => push(t, 0, k, 'hc3'))
+      ;((row.chatgpt_answers as string[]) ?? []).forEach((t, k) => push(t, 1, k, 'hc3'))
+      ;((row.modern_answers as string[]) ?? []).forEach((t, k) => push(t, 1, k, 'modern'))
     })
   }
 
   const docs: Doc[] = []
+  // 按「字符质量」配平 AI 侧的两个方言：
+  //   2023 ChatGPT（HC3 原生）与 2025–26 现代模型。
+  // 不配平的话，现代模型样本只占 AI 侧 1.7% 字符，模型等于没学过它——
+  // 实测：加 343 条现代样本后，「人写 vs 现代模型」AUC 只有 0.615、召回 33.8%，
+  // 而把量配平（scripts/probe-modern-separability.ts，平衡小组 5 折）是 0.944。
+  // 说明不是没有信号，是被稀释了。这里把 2023 侧压到现代侧约 2 倍质量。
+  const modernCharsByDomain = new Map<string, number>()
+  for (const [key, arr] of cells) {
+    const parts = key.split('|')
+    if (parts[2] !== 'modern') continue
+    const dom = parts[0]
+    modernCharsByDomain.set(dom, (modernCharsByDomain.get(dom) ?? 0) + arr[0].reduce((s, d) => s + d.text.length, 0))
+  }
   for (const [key, arr] of [...cells].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const [dom, , origin] = key.split('|')
     const rnd = mulberry32(SEED ^ (key.length * 7919 + key.charCodeAt(0)))
     const shuffled = shuffle(arr[0], rnd)
+    const modernHere = modernCharsByDomain.get(dom) ?? 0
+    // 2023 侧与现代侧的字符质量比。默认 2:1（保留大部分 HC3，同时让现代方言有真实权重）。
+    // 可用环境变量 AI_HC3_RATIO 扫参：调小 = 更认现代模型，调大 = 更认 2023 ChatGPT。
+    // 这是「一个 AI 类装两种方言」的固有折中，必须实测而不是拍脑袋。
+    const ratio = Number(process.env.AI_HC3_RATIO ?? 2)
+    const capChars = AI_FROM === 'both' && origin === 'hc3' && dom && modernHere > 0
+      ? Math.round(modernHere * ratio)
+      : MAX_CHARS_PER_CELL
     let chars = 0
     const picked: Doc[] = []
     for (const d of shuffled) {
       if (picked.length >= MAX_DOCS_PER_CELL) break
-      if (chars + d.text.length > MAX_CHARS_PER_CELL) continue
+      if (chars + d.text.length > capChars) continue
       picked.push(d)
       chars += d.text.length
     }
@@ -274,6 +317,36 @@ function fitPlatt(deltas: number[], labels: number[]): Cal {
 function toScore(d: number, cal: Cal): number {
   const z = (d - cal.mean) / cal.std
   return 100 / (1 + Math.exp(-(cal.a * z + cal.b)))
+}
+
+/**
+ * 把「50 分」锚定到 OOF 上 (灵敏度 + 特异度) 最大的切点（Youden 指数）。
+ *
+ * 为什么需要：Platt 拟合只保证概率校准，不保证 50 分落在业务上合理的操作点。
+ * 实测现代模型那一版曾出现「灵敏度 99.8% / 特异度 30.2%」——AUC 明明 0.924，
+ * 但 50 分的位置严重偏低，几乎把所有文本都判高。锚定后 50 分 = 均衡操作点，
+ * 这才是一个能在页面上写「≥50 值得回头看」的前提。
+ */
+function anchorThreshold(deltas: number[], labels: number[], cal: Cal): Cal {
+  // 排序后线性扫一遍，避免 O(n²)
+  const sorted = deltas.map((d, i) => ({ d, y: labels[i] })).sort((x, y) => x.d - y.d)
+  const pos = labels.filter((x) => x === 1).length
+  const neg = labels.length - pos
+  if (pos === 0 || neg === 0) return cal
+  let best = { cut: sorted[sorted.length - 1].d, j: -Infinity }
+  let tp = 0
+  let fp = 0
+  // 从最高 delta 往下扫：当前 cut 以上的样本都算「判为 AI」，
+  // 于是 tp/fp 逐步累加，j = 灵敏度 + 特异度。（从低往高扫会把方向弄反，
+  // 实测后果是 50 分被推到极值：灵敏度 0% / 特异度 100%，或反过来。）
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    if (sorted[i].y === 1) tp++
+    else fp++
+    const j = tp / pos + (neg - fp) / neg
+    if (j > best.j) best = { cut: sorted[i].d, j }
+  }
+  const z = (best.cut - cal.mean) / cal.std
+  return { ...cal, b: -cal.a * z }
 }
 
 // ---------- 分组：题目哈希 + 近似重复聚类 ----------
@@ -462,7 +535,7 @@ const holdDocs = docs.filter((d) => holdGroups.has(d.group))
 const SPLIT_DIR = path.join(ROOT, 'calibration', 'lm')
 fs.mkdirSync(SPLIT_DIR, { recursive: true })
 const dump = (arr: Doc[], name: string) => fs.writeFileSync(path.join(SPLIT_DIR, name),
-  arr.map((d) => JSON.stringify({ id: d.id, group: d.group, q: d.q, label: d.label, domain: d.domain, text: d.text })).join('\n'))
+  arr.map((d) => JSON.stringify({ id: d.id, group: d.group, q: d.q, label: d.label, domain: d.domain, origin: d.origin, text: d.text })).join('\n'))
 dump(holdDocs, 'holdout.jsonl')
 dump(trainDocs, 'train.jsonl')
 fs.writeFileSync(path.join(SPLIT_DIR, 'split.json'), JSON.stringify({
@@ -478,7 +551,8 @@ fs.writeFileSync(path.join(SPLIT_DIR, 'split.json'), JSON.stringify({
 }, null, 2))
 
 const chars = (arr: Doc[]) => arr.reduce((s, d) => s + d.text.length, 0)
-console.log(`清洗：原始 ${stats.raw} 条 → 过短 ${stats.tooShort}、拒答模板 ${stats.refusal}、接口报错模板 ${stats.junk} → 保留 ${stats.kept}`)
+console.log(`清洗：原始 ${stats.raw} 条 → 方言过滤 ${stats.otherDialect}、过短 ${stats.tooShort}、拒答模板 ${stats.refusal}、接口报错模板 ${stats.junk} → 保留 ${stats.kept}（其中现代模型同题补语料 ${stats.modern} 篇）`)
+console.log(`AI 方言：${AI_FROM} → 产物 lm-char2${OUT_SUFFIX}.bin`)
 console.log(`分组：${grp.roots} 组（同题合并 ${grp.mergedByQuestion} 次、近似重复合并 ${grp.mergedByNearDup} 次）`)
 console.log(`切分：train ${trainDocs.length} 篇（${chars(trainDocs).toLocaleString()} 字）/ holdout ${holdDocs.length} 篇（${chars(holdDocs).toLocaleString()} 字）`)
 const trainGroupSet = new Set(trainDocs.map((d) => d.group))
@@ -509,7 +583,11 @@ const meanAuc = foldAucs.reduce((a, b) => a + b, 0) / foldAucs.length
 const stdAuc = Math.sqrt(foldAucs.reduce((a, b) => a + (b - meanAuc) ** 2, 0) / foldAucs.length)
 console.log(`5 折 OOF AUC = ${meanAuc.toFixed(3)} ± ${stdAuc.toFixed(3)}`)
 
-const cal = fitPlatt(oofDeltas, oofLabels)
+const calRaw = fitPlatt(oofDeltas, oofLabels)
+// 把 50 分锚到 OOF 上 (灵敏度+特异度) 最大的切点：Platt 只保证概率校准，
+// 不保证 50 分落在合理的操作点上（现代方言版本曾出现 99.8%/30.2% 的退化）。
+const cal = anchorThreshold(oofDeltas, oofLabels, calRaw)
+console.log(`标定：mean=${cal.mean.toFixed(4)} std=${cal.std.toFixed(4)} a=${cal.a.toFixed(3)} b=${cal.b.toFixed(3)}（50 分已锚定到均衡操作点）`)
 
 // 最终模型：用全部训练集重训
 const hBuilt = quantizeModel(trainModel(trainDocs.filter((d) => d.label === 0)))
@@ -546,6 +624,32 @@ const lenWins = perDomain
 const formatBaseline = lenWins.length > 0
   ? { domain: lenWins[0].domain, modelAuc: lenWins[0].auc, lengthAuc: lenWins[0].lenAuc, gap: Number((lenWins[0].lenAuc - lenWins[0].auc).toFixed(3)) }
   : null
+
+// 现代模型子集：v0.14 起 AI 侧不再只有 2023 年的 ChatGPT，
+// 这里单独量「人写 vs 2026 现代模型」的 AUC 与召回，避免整体 AUC 掩盖住真实能力变化。
+const idxOf = (pred: (d: Doc) => boolean) => holdDocs.map((d, i) => (pred(d) ? i : -1)).filter((i) => i >= 0)
+const humanIdx = idxOf((d) => d.label === 0)
+const hc3AiIdx = idxOf((d) => d.label === 1 && d.origin === 'hc3')
+const modAiIdx = idxOf((d) => d.label === 1 && d.origin === 'modern')
+function subsetMetric(aiIdx: number[]): { n: number; ai: number; human: number; auc: number; recall50: number } | null {
+  if (aiIdx.length < 20 || humanIdx.length < 20) return null
+  const idx = [...humanIdx, ...aiIdx]
+  const ds = idx.map((i) => hd[i])
+  const ls = idx.map((i) => hl[i])
+  const sc = ds.map((d) => toScore(d, cal))
+  const aiScores = aiIdx.map((i, k) => sc[humanIdx.length + k])
+  return {
+    n: idx.length,
+    ai: aiIdx.length,
+    human: humanIdx.length,
+    auc: auc(ds, ls),
+    recall50: aiScores.filter((s) => s >= 50).length / aiScores.length,
+  }
+}
+const modernSubset = subsetMetric(modAiIdx)
+const hc3Subset = subsetMetric(hc3AiIdx)
+if (modernSubset) console.log(`人写 vs 现代模型（2025–26）：AUC ${modernSubset.auc.toFixed(3)}，阈值 50 召回 ${(modernSubset.recall50 * 100).toFixed(1)}%（n=${modernSubset.n}，AI 侧 ${modernSubset.ai}）`)
+if (hc3Subset) console.log(`人写 vs 2023 ChatGPT：AUC ${hc3Subset.auc.toFixed(3)}，阈值 50 召回 ${(hc3Subset.recall50 * 100).toFixed(1)}%`)
 
 // 跨域：学术摘要
 let crossDomain: { n: number; ai: number; human: number; auc: number; scoreMin: number; scoreMax: number } | null = null
@@ -608,7 +712,8 @@ const gz = zlib.gzipSync(buf, { level: 9 })
 fs.writeFileSync(`${OUT_BIN}.gz`, gz)
 fs.writeFileSync(OUT_META, JSON.stringify({
   format: 'RALM-v1',
-  file: 'lm-char2.bin',
+  file: `lm-char2${OUT_SUFFIX}.bin`,
+  aiDialect: AI_FROM,
   order: LM_ORDER,
   bits: LM_BITS,
   tableSize: LM_TABLE_SIZE,
@@ -632,7 +737,16 @@ fs.writeFileSync(OUT_META, JSON.stringify({
 fs.writeFileSync(OUT_VALID, JSON.stringify({
   meta: {
     model: '字符 2-gram 双语言模型（真人 / AI 各一个）+ Platt 标定',
-    dataset: `HC3（Chris 等，Hello-SimpleAI，CC BY-SA 4.0）中英 ${perDomain.length} 个领域；清洗后 ${docs.length} 篇`,
+    aiDialect: AI_FROM === 'modern' ? '现代模型方言（2025–26 同题重生成）' : AI_FROM === 'chatgpt2023' ? '2023 ChatGPT 方言（HC3 原生）' : '两种方言混合',
+    note: AI_FROM === 'modern'
+      ? '本产物专测「像不像 2025–26 现代模型」。线上与 2023 方言产物并行加载，各算一个读数，取更接近的那个。'
+      : AI_FROM === 'chatgpt2023'
+        ? '本产物专测「像不像 2023 年 ChatGPT」。配合 lm-char2-modern.bin 覆盖现代模型文风。'
+        : '混合方言产物（历史口径）。实测会互相稀释：认 2023 好时认现代差，反之亦然。',
+    dataset: `HC3（Chris 等，Hello-SimpleAI，CC BY-SA 4.0）中英 ${perDomain.length} 个领域 + 现代模型同题补语料 ${stats.modern} 篇；清洗后 ${docs.length} 篇`,
+    modernCorpus: stats.modern > 0
+      ? `AI 侧有两个来源：① HC3 原生 2023 年初 ChatGPT 答案；② scripts/gen-modern-ai.ts 用现代模型对**同一批问题**重新生成 ${stats.modern} 篇（同题必同组，不产生跨集泄漏；仅 DeepSeek 一个厂商）。`
+      : 'AI 侧只有 HC3 原生的 2023 年初 ChatGPT 答案，未补现代模型语料。',
     protocol: `按 question 哈希 + 近似重复聚类分组（并查集），同组不跨集，按文档数切 80/20；${FOLDS} 折交叉验证；标定参数用 OOF 预测拟合，不用测试集`,
     filters: `剔除 <${MIN_CHARS} 字符碎片、拒答模板与接口报错模板（network error / token expired / too many requests 等）。单域单类上限 ${MAX_DOCS_PER_CELL} 篇 / ${(MAX_CHARS_PER_CELL / 1e6).toFixed(1)}M 字符，防止口语英文子集从体积上淹没中文。`,
     split: `并查集连通分量 ${grp.roots} 组；同题合并 ${grp.mergedByQuestion} 次、完全相同文本 ${grp.mergedByExact} 次、近似重复（8-gram J>0.7，三组 banding 并集）${grp.mergedByNearDup} 次；留出 ${holdDocs.length} / 训练 ${trainDocs.length}`,
@@ -655,9 +769,17 @@ fs.writeFileSync(OUT_VALID, JSON.stringify({
     },
   },
   crossDomain,
+  // 分生成器单列：整体 AUC 会把「认得 2023 ChatGPT」和「认得 2026 现代模型」混成一个数，
+  // 学生真正关心的是后者，必须单独给出来，不能让它藏在均值里。
+  byGenerator: {
+    humanVsModern: modernSubset,
+    humanVsChatGpt2023: hc3Subset,
+  },
   caveats: [
-    '域内高 AUC 部分来自文体差异（问答口语 vs ChatGPT 书面体），不代表能识别 2026 年的新模型。',
-    '训练语料的 AI 文本是 2023 年初的 ChatGPT（gpt-3.5 一代），与当前模型文风已有差距。',
+    '域内高 AUC 部分来自文体差异（问答口语 vs 助手书面体），不代表能识别任意体裁的学生作文。',
+    stats.modern > 0
+      ? 'AI 侧包含 2023 年的 ChatGPT 与 2025–26 年的现代模型（DeepSeek 同题重生成）。现代模型只覆盖一个厂商、一种提问方式，对豆包 / Kimi / Claude / Gemini 的判别力未验证，别外推。'
+      : '训练语料的 AI 文本是 2023 年初的 ChatGPT（gpt-3.5 一代），与当前模型文风已有差距。',
     '学术论文属于跨域场景，本通道读数不可作为定性依据，只能作为风格参考。',
     '语言模型读数测量的是「与训练语料的文风接近程度」，不是「作者是否使用 AI」。',
     `阈值 50 时特异度 ${(specificity * 100).toFixed(1)}%：每 4 个真人里约有 1 个会被读到高分（数据来自留出集 ${hl.length.toLocaleString()} 篇）。`,
@@ -666,7 +788,7 @@ fs.writeFileSync(OUT_VALID, JSON.stringify({
       : '各域模型 AUC 均高于「只看文本长度」的表层基线，但仍不能排除其他排版捷径。',
     '个别口语域（如 reddit_eli5）AUC 接近 1.000，主要来自拼写、俚语与书面体的差异（该域最强单表层特征仅 0.798），属数据集特性，不能外推到学生作文。',
     '红队审计曾发现「同题跨集 36 题 + 771 对近似重复跨集」，已改为按题目哈希与近似重复聚类分组后重训，当前切分不复现该问题（见 docs/model-audit.md）。',
-    '内部红队探针（scripts/probe-student-style.ts，6 段手写中文学生文风）实测：5 段被判 0–2 分，1 段非母语英文被判 54 分；4 段「AI 腔」中文短段也只在 3–38 分。短篇中文写作上本通道对人和 AI 都很少给高分——**低分不等于清白**，别把它当免责证明。',
+    '内部探针（scripts/probe-student-style.ts）：6 段手写中文学生文风 5 段被判 0–2 分（正确压低），1 段非母语英文被判 54 分（真实误伤）。但同一批留出集里 <200 字文本的 AUC 仍有 0.949——所以失效点不在「短」，而在**体裁**：模型学的是问答体，学生议论文不在这个分布里。低分不代表清白，高分也不代表作弊。',
   ],
 }, null, 2))
 

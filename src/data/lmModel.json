@@ -1,19 +1,20 @@
 {
   "format": "RALM-v1",
   "file": "lm-char2.bin",
+  "aiDialect": "chatgpt2023",
   "order": 2,
   "bits": 19,
   "tableSize": 524288,
   "models": [
     {
       "name": "human",
-      "vocab": 4667,
-      "chars": 6811473
+      "vocab": 4755,
+      "chars": 6887941
     },
     {
       "name": "ai",
-      "vocab": 3742,
-      "chars": 9685328
+      "vocab": 3787,
+      "chars": 9796218
     }
   ],
   "interpolation": {
@@ -21,13 +22,13 @@
     "unigram": 0.2
   },
   "calibration": {
-    "mean": -0.0226,
-    "std": 0.6586,
-    "a": 5.454,
-    "b": -0.0541
+    "mean": -0.0365,
+    "std": 0.6459,
+    "a": 5.4598,
+    "b": -0.4223
   },
-  "sizeBytes": 1115872,
-  "sizeGzBytes": 349679,
+  "sizeBytes": 1116936,
+  "sizeGzBytes": 351208,
   "trainedAt": "2026-11-17",
   "seed": 20261117
 }

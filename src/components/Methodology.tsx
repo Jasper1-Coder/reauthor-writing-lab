@@ -3,7 +3,7 @@ import calibrationData from '../data/calibration.json'
 import redteamData from '../data/redteam.json'
 import modelData from '../data/calibratedModel.json'
 import crossDomain from '../data/crossDomainValidation.json'
-import { LM_REFERENCE } from '../lib/lmChannel'
+import { LM_REFERENCE, LM_REFERENCE_MODERN } from '../lib/lmChannel'
 
 const sources = [
   { name: 'DetectGPT', repo: 'eric-mitchell/detect-gpt', note: '概率曲率；理解零样本检测的经典起点。' },
@@ -44,7 +44,7 @@ export function Methodology() {
         <details className="method-fold" id="lm-channel" open>
           <summary>
             <span className="method-fold-kicker">核心 · 语言模型通道</span>
-            <strong>我们训练了两个语言模型：一个读真人写作，一个读 AI 写作。</strong>
+            <strong>我们训练了两个语言模型：一个读真人写作，一个读 AI 写作——AI 那一侧分两种方言，各训一个。</strong>
             <span className="method-fold-hint">不是调别人的 API，也不是黑箱百分比——字符 2-gram 双模型似然比，1.1MB 在浏览器里跑 →</span>
           </summary>
           <div className="method-fold-body">
@@ -54,7 +54,12 @@ export function Methodology() {
                 <h3>判的不是「你是不是 AI」，是「这段文字更像哪种文风」。</h3>
               </div>
               <p>
-                训练语料来自 HC3 中英 12 个领域，清洗后 {LM_REFERENCE.trainedDocs.toLocaleString()} 篇真实文本。
+                2026 年的「AI 文风」其实有两种：2023 年 ChatGPT 那种规整长段落，和现在这些模型更接近人话的写法。
+                我们实测过把它们混进一个模型——<strong>顾此失彼</strong>：认 2023 好时现代模型召回只有 62.8%，认现代好时 2023 掉到 45%。
+                所以分成两个方言各自训练，线上各算一个读数，<strong>取较接近的那个</strong>。
+              </p>
+              <p>
+                训练语料来自 HC3 中英 12 个领域，清洗后 {LM_REFERENCE.trainedDocs.toLocaleString()} 篇真实文本；现代方言另有 {LM_REFERENCE_MODERN.trainedDocs.toLocaleString()} 篇同题重生成语料。
                 我们分别训练两个字符级 2-gram 语言模型：一个只读真人答案，一个只读 AI 答案。
                 对任意文本计算它在两个模型下的平均对数概率之差（对数似然比），再用 Platt 标定到 0–100。
                 全部推理在你本机完成，文本不出浏览器。
@@ -86,7 +91,8 @@ export function Methodology() {
               </p>
               <p className="lm-method-repro">
                 可复现：<code>npx tsx scripts/train-lm.ts</code> 训练并导出 · <code>npx tsx scripts/verify-lm.ts</code> 从产物独立复算 AUC（与训练期报告差 &lt;0.001）·{' '}
-                <code>npx tsx scripts/audit-lm-recompute.ts</code> 第二套独立复算（不 import 本站任何解析代码）。
+                <code>npx tsx scripts/audit-lm-recompute.ts</code> 第二套独立复算（不 import 本站任何解析代码）·
+                <code>npx tsx scripts/probe-modern-separability.ts</code> 测方言 B 的可分性与格式捷径。
                 产物 {LM_REFERENCE.sizeMB}MB，gzip 后 {LM_REFERENCE.gzKB}KB，纯 JS 推理，不联网。
               </p>
             </div>

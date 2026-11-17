@@ -1,0 +1,126 @@
+{
+  "meta": {
+    "model": "字符 2-gram 双语言模型（真人 / AI 各一个）+ Platt 标定",
+    "aiDialect": "现代模型方言（2025–26 同题重生成）",
+    "note": "本产物专测「像不像 2025–26 现代模型」。线上与 2023 方言产物并行加载，各算一个读数，取更接近的那个。",
+    "dataset": "HC3（Chris 等，Hello-SimpleAI，CC BY-SA 4.0）中英 7 个领域 + 现代模型同题补语料 1417 篇；清洗后 22086 篇",
+    "modernCorpus": "AI 侧有两个来源：① HC3 原生 2023 年初 ChatGPT 答案；② scripts/gen-modern-ai.ts 用现代模型对**同一批问题**重新生成 1417 篇（同题必同组，不产生跨集泄漏；仅 DeepSeek 一个厂商）。",
+    "protocol": "按 question 哈希 + 近似重复聚类分组（并查集），同组不跨集，按文档数切 80/20；5 折交叉验证；标定参数用 OOF 预测拟合，不用测试集",
+    "filters": "剔除 <40 字符碎片、拒答模板与接口报错模板（network error / token expired / too many requests 等）。单域单类上限 3000 篇 / 2.5M 字符，防止口语英文子集从体积上淹没中文。",
+    "split": "并查集连通分量 17040 组；同题合并 4549 次、完全相同文本 454 次、近似重复（8-gram J>0.7，三组 banding 并集）43 次；留出 4417 / 训练 17669",
+    "trainedAt": "2026-11-17",
+    "reproducible": "npx tsx scripts/train-lm.ts",
+    "audited": "docs/model-audit.md（独立复算 scripts/audit-lm-recompute.ts + 泄漏审查 scripts/audit-lm-leak.ts）"
+  },
+  "inDomain": {
+    "holdoutAuc": 0.952,
+    "holdoutN": 4417,
+    "cvAucMean": 0.948,
+    "cvAucStd": 0.017,
+    "folds": [
+      0.943,
+      0.963,
+      0.96,
+      0.958,
+      0.916
+    ],
+    "macroAucOverDomains": 0.91,
+    "perDomain": [
+      {
+        "domain": "zh_baike",
+        "n": 671,
+        "ai": 48,
+        "human": 623,
+        "auc": 0.926,
+        "lenAuc": 0.699
+      },
+      {
+        "domain": "zh_finance",
+        "n": 152,
+        "ai": 36,
+        "human": 116,
+        "auc": 0.965,
+        "lenAuc": 0.693
+      },
+      {
+        "domain": "zh_law",
+        "n": 71,
+        "ai": 39,
+        "human": 32,
+        "auc": 0.859,
+        "lenAuc": 0.963
+      },
+      {
+        "domain": "zh_medicine",
+        "n": 225,
+        "ai": 24,
+        "human": 201,
+        "auc": 0.996,
+        "lenAuc": 0.904
+      },
+      {
+        "domain": "zh_nlpcc_dbqa",
+        "n": 174,
+        "ai": 26,
+        "human": 148,
+        "auc": 0.739,
+        "lenAuc": 0.655
+      },
+      {
+        "domain": "zh_open_qa",
+        "n": 649,
+        "ai": 38,
+        "human": 611,
+        "auc": 0.935,
+        "lenAuc": 0.761
+      },
+      {
+        "domain": "zh_psychology",
+        "n": 648,
+        "ai": 30,
+        "human": 618,
+        "auc": 0.952,
+        "lenAuc": 0.792
+      }
+    ],
+    "formatBaseline": {
+      "domain": "zh_law",
+      "modelAuc": 0.8589743589743589,
+      "lengthAuc": 0.9631410256410257,
+      "gap": 0.104
+    },
+    "atThreshold50": {
+      "sensitivity": 0.892,
+      "specificity": 0.915
+    }
+  },
+  "crossDomain": {
+    "n": 32,
+    "ai": 16,
+    "human": 16,
+    "auc": 0.74609375,
+    "scoreMin": 23,
+    "scoreMax": 53
+  },
+  "byGenerator": {
+    "humanVsModern": {
+      "n": 4417,
+      "ai": 241,
+      "human": 4176,
+      "auc": 0.9524143097883977,
+      "recall50": 0.8921161825726142
+    },
+    "humanVsChatGpt2023": null
+  },
+  "caveats": [
+    "域内高 AUC 部分来自文体差异（问答口语 vs 助手书面体），不代表能识别任意体裁的学生作文。",
+    "AI 侧包含 2023 年的 ChatGPT 与 2025–26 年的现代模型（DeepSeek 同题重生成）。现代模型只覆盖一个厂商、一种提问方式，对豆包 / Kimi / Claude / Gemini 的判别力未验证，别外推。",
+    "学术论文属于跨域场景，本通道读数不可作为定性依据，只能作为风格参考。",
+    "语言模型读数测量的是「与训练语料的文风接近程度」，不是「作者是否使用 AI」。",
+    "阈值 50 时特异度 91.5%：每 4 个真人里约有 1 个会被读到高分（数据来自留出集 4,417 篇）。",
+    "在 zh_law 这一域，模型 AUC 0.859 反而低于「只看文本长度」这一个表层特征的 0.963——说明部分判别力可被排版/篇幅解释，不是纯文风。",
+    "个别口语域（如 reddit_eli5）AUC 接近 1.000，主要来自拼写、俚语与书面体的差异（该域最强单表层特征仅 0.798），属数据集特性，不能外推到学生作文。",
+    "红队审计曾发现「同题跨集 36 题 + 771 对近似重复跨集」，已改为按题目哈希与近似重复聚类分组后重训，当前切分不复现该问题（见 docs/model-audit.md）。",
+    "内部探针（scripts/probe-student-style.ts）：6 段手写中文学生文风 5 段被判 0–2 分（正确压低），1 段非母语英文被判 54 分（真实误伤）。但同一批留出集里 <200 字文本的 AUC 仍有 0.949——所以失效点不在「短」，而在**体裁**：模型学的是问答体，学生议论文不在这个分布里。低分不代表清白，高分也不代表作弊。"
+  ]
+}

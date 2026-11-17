@@ -1,5 +1,7 @@
 import lmMeta from '../data/lmModel.json'
 import lmValid from '../data/lmValidation.json'
+import lmMetaModern from '../data/lmModelModern.json'
+import lmValidModern from '../data/lmValidationModern.json'
 import {
   DEQUANT,
   LM_MASK,
@@ -58,6 +60,10 @@ export interface LmChannelResult {
   burstiness: number
   sentences: LmSentenceReading[]
   tokens: number
+  /** 两种 AI 方言各自给出的读数（取较高者作为 score） */
+  dialects?: { chatgpt2023: number | null; modern: number | null }
+  /** 哪一个方言更接近（用于向学生解释这句为什么被判高） */
+  closestDialect?: 'chatgpt2023' | 'modern'
 }
 
 export const LM_REFERENCE = {
@@ -72,14 +78,43 @@ export const LM_REFERENCE = {
   crossDomainN: lmValid.crossDomain?.n ?? 0,
   /** 模型跑不过「只看长度」的表层基线时，训练脚本会写入该域（红队审计要求披露） */
   formatBaseline: (lmValid.inDomain as { formatBaseline?: { domain: string; modelAuc: number; lengthAuc: number; gap: number } | null }).formatBaseline ?? null,
+  /**
+   * 分生成器成绩。学生真正关心的是「能不能认出现在这些模型写的」，
+   * 整体 AUC 会把 2023 ChatGPT 与现代模型混成一个数，必须拆开展示。
+   */
+  byGenerator: (lmValid as {
+    byGenerator?: {
+      humanVsModern: { n: number; ai: number; human: number; auc: number; recall50: number } | null
+      humanVsChatGpt2023: { n: number; ai: number; human: number; auc: number; recall50: number } | null
+    }
+  }).byGenerator ?? { humanVsModern: null, humanVsChatGpt2023: null },
   trainedDocs: Number(/清洗后 (\d+) 篇/.exec(lmValid.meta.dataset)?.[1] ?? 0),
   sizeMB: Number((lmMeta.sizeBytes / 1e6).toFixed(2)),
   gzKB: Math.round(((lmMeta as { sizeGzBytes?: number }).sizeGzBytes ?? 0) / 1024),
   caveats: lmValid.caveats as string[],
 }
 
+/** 现代方言的参考指标（与基座同结构，页面按方言分别展示） */
+export const LM_REFERENCE_MODERN = {
+  holdoutAuc: lmValidModern.inDomain.holdoutAuc,
+  holdoutN: lmValidModern.inDomain.holdoutN,
+  cvAucMean: lmValidModern.inDomain.cvAucMean,
+  cvAucStd: lmValidModern.inDomain.cvAucStd,
+  sensitivity: lmValidModern.inDomain.atThreshold50.sensitivity,
+  specificity: lmValidModern.inDomain.atThreshold50.specificity,
+  crossDomainAuc: lmValidModern.crossDomain?.auc ?? null,
+  crossDomainN: lmValidModern.crossDomain?.n ?? 0,
+  trainedDocs: Number(/清洗后 (\d+) 篇/.exec(lmValidModern.meta.dataset)?.[1] ?? 0),
+  recall50: (lmValidModern as { byGenerator?: { humanVsModern?: { recall50: number } | null } }).byGenerator?.humanVsModern?.recall50 ?? null,
+  sizeMB: Number(((lmMetaModern as { sizeBytes?: number }).sizeBytes ?? 0) / 1e6),
+  gzKB: Math.round(((lmMetaModern as { sizeGzBytes?: number }).sizeGzBytes ?? 0) / 1024),
+  caveats: lmValidModern.caveats as string[],
+}
+
 const LM_FILE = lmMeta.file
-const CAL = lmMeta.calibration
+const LM_FILE_MODERN = (lmMetaModern as { file?: string }).file ?? 'lm-char2-modern.bin'
+const CAL: Cal = lmMeta.calibration
+const CAL_MODERN: Cal = (lmMetaModern as { calibration?: Cal }).calibration ?? CAL
 
 interface RuntimeModel {
   /** Unicode 码点 → unigram 下标 */
@@ -89,9 +124,13 @@ interface RuntimeModel {
   total: number
 }
 
+interface Cal { mean: number; std: number; a: number; b: number }
+
 export interface LmModel {
   human: RuntimeModel
   ai: RuntimeModel
+  /** 该产物自己的 Platt 参数（两个方言各有各的标定，缺省回落到基座产物） */
+  cal?: Cal
 }
 
 function parseModel(buf: ArrayBuffer, offset: number, vocab: number, total: number): { model: RuntimeModel; next: number } {
@@ -127,8 +166,8 @@ let modelPromise: Promise<LmModel | null> | null = null
  * 浏览器不支持或解压失败时回落到 1.12MB 的原始文件。
  * 这样既照顾慢网，也不会在旧浏览器上直接崩。
  */
-async function fetchModelBuffer(): Promise<ArrayBuffer | null> {
-  const plain = new URL(LM_FILE, document.baseURI).href
+async function fetchModelBuffer(file: string): Promise<ArrayBuffer | null> {
+  const plain = new URL(file, document.baseURI).href
   if (typeof DecompressionStream !== 'undefined') {
     try {
       const res = await fetch(`${plain}.gz`)
@@ -149,25 +188,46 @@ async function fetchModelBuffer(): Promise<ArrayBuffer | null> {
   }
 }
 
+function parseBinary(buf: ArrayBuffer, meta: { models: Array<{ chars: number }> }, cal: Cal): LmModel | null {
+  try {
+    const view = new DataView(buf)
+    const magic = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3))
+    if (magic !== 'RALM') return null
+    const vocabH = view.getUint32(8, true)
+    const vocabA = view.getUint32(12, true)
+    const h = parseModel(buf, 24, vocabH, meta.models[0].chars)
+    const a = parseModel(buf, h.next, vocabA, meta.models[1].chars)
+    return { human: h.model, ai: a.model, cal }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 两种 AI 方言各一个产物：
+ *   lm-char2.bin        = 人写 vs 2023 ChatGPT（HC3 原生）
+ *   lm-char2-modern.bin = 人写 vs 2025–26 现代模型（同题重生成）
+ * 2026 年的「AI 文风」是两种方言，一个模型装不下——实测单模型混合时，
+ * 认 2023 好则现代召回只有 62.8%，认现代好则 2023 掉到 45%（顾此失彼）。
+ * 所以各训一个、各算一个读数，取更接近的那个。
+ */
 export function loadLmModel(): Promise<LmModel | null> {
   if (modelPromise) return modelPromise
   modelPromise = (async () => {
-    try {
-      const buf = await fetchModelBuffer()
-      if (!buf) return null
-      const view = new DataView(buf)
-      const magic = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3))
-      if (magic !== 'RALM') return null
-      const vocabH = view.getUint32(8, true)
-      const vocabA = view.getUint32(12, true)
-      const h = parseModel(buf, 24, vocabH, lmMeta.models[0].chars)
-      const a = parseModel(buf, h.next, vocabA, lmMeta.models[1].chars)
-      return { human: h.model, ai: a.model }
-    } catch {
-      return null
-    }
+    const buf = await fetchModelBuffer(LM_FILE)
+    return buf ? parseBinary(buf, lmMeta, CAL) : null
   })()
   return modelPromise
+}
+
+let modernPromise: Promise<LmModel | null> | null = null
+export function loadLmModernModel(): Promise<LmModel | null> {
+  if (modernPromise) return modernPromise
+  modernPromise = (async () => {
+    const buf = await fetchModelBuffer(LM_FILE_MODERN)
+    return buf ? parseBinary(buf, lmMetaModern as { models: Array<{ chars: number }> }, CAL_MODERN) : null
+  })()
+  return modernPromise
 }
 
 /** 平均对数概率（负交叉熵），与 scripts/train-lm.ts 的 meanLogp 严格同口径 */
@@ -204,9 +264,9 @@ function deltaOf(model: LmModel, normalized: string): { delta: number; humanLogp
 }
 
 /** 似然比 → 0–100（Platt 标定，参数由训练脚本在 OOF 预测上拟合） */
-export function calibrateDelta(delta: number): number {
-  const z = (delta - CAL.mean) / CAL.std
-  const s = 100 / (1 + Math.exp(-(CAL.a * z + CAL.b)))
+export function calibrateDelta(delta: number, cal: Cal = CAL): number {
+  const z = (delta - cal.mean) / cal.std
+  const s = 100 / (1 + Math.exp(-(cal.a * z + cal.b)))
   return Math.round(Math.min(100, Math.max(0, s)))
 }
 
@@ -231,7 +291,7 @@ export function scoreLmText(model: LmModel, text: string): LmChannelResult {
     const norm = normalizeLm(raw)
     if (norm.length < 8) continue
     const d = deltaOf(model, norm)
-    sentences.push({ text: raw, score: calibrateDelta(d.delta), delta: Number(d.delta.toFixed(4)) })
+    sentences.push({ text: raw, score: calibrateDelta(d.delta, model.cal ?? CAL), delta: Number(d.delta.toFixed(4)) })
   }
   const deltas = sentences.map((s) => s.delta)
   const mean = deltas.length > 0 ? deltas.reduce((a, b) => a + b, 0) / deltas.length : 0
@@ -240,7 +300,7 @@ export function scoreLmText(model: LmModel, text: string): LmChannelResult {
     : 0
   return {
     available: true,
-    score: calibrateDelta(whole.delta),
+    score: calibrateDelta(whole.delta, model.cal ?? CAL),
     delta: Number(whole.delta.toFixed(4)),
     humanLogp: Number(whole.humanLogp.toFixed(4)),
     aiLogp: Number(whole.aiLogp.toFixed(4)),
@@ -250,10 +310,31 @@ export function scoreLmText(model: LmModel, text: string): LmChannelResult {
   }
 }
 
-/** 便捷入口：负责加载模型，加载失败返回 null（不阻塞主流程） */
+/**
+ * 便捷入口：两种方言都加载，各算一个读数，取更高者。
+ * 取高而不是取平均，是因为「像 2023 ChatGPT」和「像 2026 现代模型」是两条独立的证据：
+ * 只要有一种方言高度吻合，就值得让学生回头看这段文字。平均会把两条证据互相抵消。
+ * 任一产物加载失败都不影响另一个（降级为单方言读数，页面会显示可用方言数）。
+ */
 export async function runLmChannel(text: string): Promise<LmChannelResult | null> {
-  const model = await loadLmModel()
-  if (!model) return null
-  const result = scoreLmText(model, text)
-  return result.available ? result : null
+  const [base, modern] = await Promise.all([loadLmModel(), loadLmModernModel()])
+  const results: Array<{ key: 'chatgpt2023' | 'modern'; r: LmChannelResult }> = []
+  if (base) {
+    const r = scoreLmText(base, text)
+    if (r.available) results.push({ key: 'chatgpt2023', r })
+  }
+  if (modern) {
+    const r = scoreLmText(modern, text)
+    if (r.available) results.push({ key: 'modern', r })
+  }
+  if (results.length === 0) return null
+  const winner = results.reduce((a, b) => (b.r.score > a.r.score ? b : a))
+  return {
+    ...winner.r,
+    dialects: {
+      chatgpt2023: results.find((x) => x.key === 'chatgpt2023')?.r.score ?? null,
+      modern: results.find((x) => x.key === 'modern')?.r.score ?? null,
+    },
+    closestDialect: winner.key,
+  }
 }

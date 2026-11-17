@@ -3,8 +3,8 @@ import { Brain, ChevronDown, Info, LoaderCircle, TriangleAlert } from 'lucide-re
 import {
   LM_MODEL_LABEL,
   LM_REFERENCE,
-  loadLmModel,
-  scoreLmText,
+  LM_REFERENCE_MODERN,
+  runLmChannel,
   type LmChannelResult,
 } from '../lib/lmChannel'
 
@@ -31,15 +31,10 @@ export function LmChannelCard({ text }: LmChannelCardProps) {
     let alive = true
     setState({ status: 'loading' })
     ;(async () => {
-      const model = await loadLmModel()
+      // 两种 AI 方言（2023 ChatGPT / 2025–26 现代模型）各自加载、各自打分，取较高者
+      const result = await runLmChannel(text)
       if (!alive) return
-      if (!model) {
-        setState({ status: 'unavailable' })
-        return
-      }
-      const result = scoreLmText(model, text)
-      if (!alive) return
-      setState(result.available ? { status: 'ready', result } : { status: 'unavailable' })
+      setState(result ? { status: 'ready', result } : { status: 'unavailable' })
     })()
     return () => { alive = false }
   }, [text])
@@ -48,7 +43,7 @@ export function LmChannelCard({ text }: LmChannelCardProps) {
     return (
       <section className="lm-card lm-card-loading" aria-live="polite">
         <LoaderCircle size={18} className="lm-spin" />
-        <p>正在加载语言模型…（首次约 {LM_REFERENCE.sizeMB}MB，预压缩 {LM_REFERENCE.gzKB}KB，之后走浏览器缓存；全部在本机计算，文本不上传）</p>
+        <p>正在加载两种方言的语言模型…（首次约 {(LM_REFERENCE.sizeMB + LM_REFERENCE_MODERN.sizeMB).toFixed(1)}MB，预压缩 {LM_REFERENCE.gzKB + LM_REFERENCE_MODERN.gzKB}KB，之后走浏览器缓存；全部在本机计算，文本不上传）</p>
       </section>
     )
   }
@@ -124,11 +119,30 @@ export function LmChannelCard({ text }: LmChannelCardProps) {
         </div>
       )}
 
+      {r.dialects && (
+        <div className="lm-dialects">
+          <div className={r.closestDialect === 'chatgpt2023' ? 'lm-dialect active' : 'lm-dialect'}>
+            <span>像 2023 年 ChatGPT</span>
+            <strong>{r.dialects.chatgpt2023 !== null ? r.dialects.chatgpt2023 : '—'}</strong>
+            <em>AUC {LM_REFERENCE.holdoutAuc.toFixed(3)}</em>
+          </div>
+          <div className={r.closestDialect === 'modern' ? 'lm-dialect active' : 'lm-dialect'}>
+            <span>像 2025–26 现代模型</span>
+            <strong>{r.dialects.modern !== null ? r.dialects.modern : '—'}</strong>
+            <em>AUC {LM_REFERENCE_MODERN.holdoutAuc.toFixed(3)}</em>
+          </div>
+          <p className="lm-dialects-note">
+            两种方言各训一个模型，<strong>取较接近的那个</strong>作为本通道读数——因为 2026 年的「AI 文风」已经是两种写法。
+          </p>
+        </div>
+      )}
+
       <div className="lm-metrics">
         <div><span>域内留出集 AUC</span><strong>{LM_REFERENCE.holdoutAuc.toFixed(3)}</strong><em>{LM_REFERENCE.holdoutN.toLocaleString()} 篇</em></div>
         <div><span>5 折交叉验证</span><strong>{LM_REFERENCE.cvAuc.toFixed(3)} ± {LM_REFERENCE.cvAucStd.toFixed(3)}</strong><em>同组不跨集</em></div>
         <div className="lm-metric-warn"><span>学术论文跨域 AUC</span><strong>{crossAuc !== null ? crossAuc.toFixed(3) : '—'}</strong><em>失效（n={LM_REFERENCE.crossDomainN}）</em></div>
-        <div className="lm-metric-warn"><span>阈值 50 特异度</span><strong>{(LM_REFERENCE.specificity * 100).toFixed(1)}%</strong><em>约 1/4 真人被判高</em></div>
+        <div><span>现代模型召回（阈值 50）</span><strong>{LM_REFERENCE_MODERN.recall50 !== null ? `${(LM_REFERENCE_MODERN.recall50 * 100).toFixed(1)}%` : '—'}</strong><em>2025–26 模型写的文本被读到 ≥50 的比例</em></div>
+        <div className="lm-metric-warn"><span>阈值 50 特异度</span><strong>{(LM_REFERENCE.specificity * 100).toFixed(1)}%</strong><em>真人被误判高的比例</em></div>
         {LM_REFERENCE.formatBaseline && (
           <div className="lm-metric-warn">
             <span>模型 vs「只看长度」</span>
