@@ -123,7 +123,7 @@ let modelPromise: Promise<LmModel | null> | null = null
 
 /**
  * 取模型二进制。
- * 优先拿预压缩版（372KB），用 DecompressionStream 在本地解开；
+ * 优先拿预压缩版（约 342KB），用 DecompressionStream 在本地解开；
  * 浏览器不支持或解压失败时回落到 1.12MB 的原始文件。
  * 这样既照顾慢网，也不会在旧浏览器上直接崩。
  */
