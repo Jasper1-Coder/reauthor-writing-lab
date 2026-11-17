@@ -49,6 +49,11 @@ describe('App integration (jsdom)', () => {
     expect(container.textContent).toContain('AI 写作特征指数')
     expect(container.textContent).toContain('不是 AI 生成概率')
 
+    // 分数对不上说明：学生必问的「别人 100 我这里十几分」，正面回应不可退化
+    expect(container.textContent).toContain('为什么别人判我 100 分')
+    expect(container.querySelector('.score-gap-explain')).toBeTruthy()
+    expect(container.textContent).toContain('61.3%')
+
     // Switch to the revision tab
     const revisionTab = [...container.querySelectorAll('.diagnosis-tabs button')].find((button) => button.textContent?.includes('修改路线'))
     await act(async () => { revisionTab!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })

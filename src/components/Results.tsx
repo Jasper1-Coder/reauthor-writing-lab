@@ -15,6 +15,7 @@ import {
   LoaderCircle,
   Printer,
   Quote,
+  Scale,
   ShieldCheck,
   Sparkles,
 } from 'lucide-react'
@@ -260,6 +261,35 @@ export function Results({ report, previousReport, onToast, onUseFullText }: Resu
           </div>
         </div>
       )}
+
+      <details className="score-gap-explain">
+        <summary>
+          <Scale size={18} />
+          <span>为什么别人判我 100 分，这里只有 {report.score} 分？</span>
+          <ChevronDown size={17} className="tech-chevron" />
+        </summary>
+        <div className="score-gap-body">
+          <p className="score-gap-lead">先说结论：<strong>两边的数字都不能当裁判。</strong>它们量的不是同一件事，而且各自都有已知的偏差——包括本站自己。</p>
+          <div className="score-gap-grid">
+            <div className="score-gap-card">
+              <span className="gap-tag gap-tag-other">别人 · 100 分</span>
+              <h4>量的是「像不像模型写的」</h4>
+              <p>这类检测器对用词规整、句式均匀的文本极其敏感。问题在于：学术论文恰好就是这个样子。斯坦福研究发现，真人写的中国学生作文有 <strong>61.3% 被误判成 AI</strong>——判的是「写得工整」，不是「是 AI 写的」。</p>
+            </div>
+            <div className="score-gap-card">
+              <span className="gap-tag gap-tag-rule">本站 · {report.score} 分</span>
+              <h4>量的是「模板化特征多不多」</h4>
+              <p>这是五个手写规则算出来的特征指数，<strong>从来就不是 AI 概率</strong>。它在公开测试中接近随机（AUC 0.515），只配当「哪句值得改」的线索。分数低不等于人写的，只等于这几项特征不突出。</p>
+            </div>
+            <div className="score-gap-card">
+              <span className="gap-tag gap-tag-cal">本站校准 · {report.calibratedScore} 分</span>
+              <h4>量的是「像不像 HC3 问答语料」</h4>
+              <p>这是本站唯一训练过的通道，在问答文本上表现不错；但换到学术论文，分数会塌到个位数（跨域测试灵敏度 0）。<strong>这是我们公开承认的短板，没有藏。</strong>所以这里的低分既不能证明你清白，也不能给你定罪。</p>
+            </div>
+          </div>
+          <p className="score-gap-foot"><Info size={15} /> 真正能用的不是任何一个百分比，而是下面这些：逐句为什么被标、你自己改了什么、被判之后怎么说明。数字打架的时候，证据说话。</p>
+        </div>
+      </details>
 
       <div className="next-step-bar">
         <div className="next-step-lead">
