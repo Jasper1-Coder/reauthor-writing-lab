@@ -4,6 +4,7 @@ import {
   LM_MODEL_LABEL,
   LM_REFERENCE,
   LM_REFERENCE_MODERN,
+  LM_ECDF_REFERENCE,
   runLmChannel,
   type LmChannelResult,
 } from '../lib/lmChannel'
@@ -59,8 +60,20 @@ export function LmChannelCard({ text }: LmChannelCardProps) {
 
   const r = state.result
   const crossAuc = LM_REFERENCE.crossDomainAuc
-  const band = r.score >= 67 ? 'high' : r.score >= 34 ? 'mid' : 'low'
-  const bandLabel = r.score >= 67 ? '接近训练语料中的 AI 文风' : r.score >= 34 ? '处于中间地带' : '更接近训练语料中的真人写法'
+  // 主读数改用「同类真人文本中的百分位」：绝对值会随体裁整体平移（真人作文比问答体真人
+  // 低 1.85 个标准差），百分位不会。实测作文体裁 AUC 0.981，阈值 95 百分位召回 100% / 误伤 4.9%。
+  const pct = r.percentile ?? null
+  const baseName = r.baseline === 'essay' ? '真人学生作文' : '真人问答答案'
+  const band = pct !== null
+    ? (pct >= 99 ? 'high' : pct >= 95 ? 'mid' : 'low')
+    : (r.score >= 67 ? 'high' : r.score >= 34 ? 'mid' : 'low')
+  const bandLabel = pct !== null
+    ? (pct >= 99
+      ? `高于 ${pct}% 的${baseName}——这一段最值得回头看`
+      : pct >= 95
+        ? `超过 ${pct}% 的${baseName}，已在提示线之上`
+        : `落在${baseName}的常态范围内（${pct} 百分位）`)
+    : (r.score >= 67 ? '接近训练语料中的 AI 文风' : r.score >= 34 ? '处于中间地带' : '更接近训练语料中的真人写法')
 
   return (
     <section className="lm-card" aria-labelledby="lm-title">
@@ -77,10 +90,29 @@ export function LmChannelCard({ text }: LmChannelCardProps) {
 
       <div className="lm-body">
         <div className={`lm-score lm-score-${band}`}>
-          <strong>{r.score}</strong>
-          <span>/ 100</span>
-          <em>{bandLabel}</em>
+          {pct !== null ? (
+            <>
+              <strong>{pct}</strong>
+              <span>%</span>
+              <em>{bandLabel}</em>
+            </>
+          ) : (
+            <>
+              <strong>{r.score}</strong>
+              <span>/ 100</span>
+              <em>{bandLabel}</em>
+            </>
+          )}
         </div>
+
+        {pct !== null && (
+          <p className="lm-percentile-note">
+            这个 <strong>{pct}%</strong> 的意思是：拿 {r.baseline === 'essay' ? LM_ECDF_REFERENCE.counts.essay.toLocaleString() : LM_ECDF_REFERENCE.counts.qa.toLocaleString()} 篇
+            {baseName}当尺子，你的文字排在第 {pct} 百分位——<strong>百分位越高，越偏离真人写作的常态</strong>。
+            它不随体裁平移，所以换个题材（作文 / 作业 / 问答）也读得准；旧的 0–100 分只在问答体裁上标定过，
+            换成作文会整体偏低，所以这里不再把绝对分当主读数（旧读数 {r.score} 仍保留在下方指标区）。
+          </p>
+        )}
 
         <div className="lm-explain">
           <p>

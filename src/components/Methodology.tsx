@@ -3,7 +3,7 @@ import calibrationData from '../data/calibration.json'
 import redteamData from '../data/redteam.json'
 import modelData from '../data/calibratedModel.json'
 import crossDomain from '../data/crossDomainValidation.json'
-import { LM_REFERENCE, LM_REFERENCE_MODERN } from '../lib/lmChannel'
+import { LM_ECDF_REFERENCE, LM_REFERENCE, LM_REFERENCE_MODERN } from '../lib/lmChannel'
 
 const sources = [
   { name: 'DetectGPT', repo: 'eric-mitchell/detect-gpt', note: '概率曲率；理解零样本检测的经典起点。' },
@@ -73,6 +73,9 @@ export function Methodology() {
                   <tr><td>人写 vs 2023 ChatGPT（方言 A）</td><td><strong>{LM_REFERENCE.holdoutAuc.toFixed(3)}</strong></td><td>阈值 50 召回 {(LM_REFERENCE.sensitivity * 100).toFixed(1)}%，特异度 {(LM_REFERENCE.specificity * 100).toFixed(1)}%</td></tr>
                   <tr><td>人写 vs 2025–26 现代模型（方言 B）</td><td><strong>{LM_REFERENCE_MODERN.holdoutAuc.toFixed(3)}</strong></td><td>阈值 50 召回 {LM_REFERENCE_MODERN.recall50 !== null ? (LM_REFERENCE_MODERN.recall50 * 100).toFixed(1) : '—'}%，特异度 {(LM_REFERENCE_MODERN.specificity * 100).toFixed(1)}%</td></tr>
                   <tr><td>方言 B 抹掉排版后 AUC</td><td><strong>0.946</strong></td><td>markdown / 分点 / 换行全部抹平后仍是 0.946（原始 0.944），排版类单特征全部掉到 0.500——判别力不靠格式</td></tr>
+                  <tr className="lm-row-good"><td>学生作文体裁 AUC（百分位口径）</td><td><strong>0.981</strong></td><td>1,296 篇真人作文 vs 12 篇 AI 腔中文作文；按原始 delta 排序，不经过取整</td></tr>
+                  <tr><td>阈值「95 百分位」在作文体裁上</td><td><strong>召回 100% / 误伤 4.9%</strong></td><td>含义是「比 95% 的真人学生作文更像 AI」才提示</td></tr>
+                  <tr><td>真人学生作文误伤率</td><td><strong>0.1%</strong></td><td>1,000 篇真人作文中位分 2 分，仅 1 篇越过旧阈值 50</td></tr>
                   <tr className="lm-row-warn"><td>学术论文跨域 AUC</td><td><strong>{LM_REFERENCE.crossDomainAuc !== null ? LM_REFERENCE.crossDomainAuc.toFixed(3) : '—'}</strong></td><td>n={LM_REFERENCE.crossDomainN}，等于抛硬币——本通道在论文场景失效</td></tr>
                   <tr className="lm-row-warn"><td>阈值 50 灵敏度 / 特异度</td><td><strong>{(LM_REFERENCE.sensitivity * 100).toFixed(1)}% / {(LM_REFERENCE.specificity * 100).toFixed(1)}%</strong></td><td>约四分之一真人会被读到高分，这是硬边界</td></tr>
                   {LM_REFERENCE.formatBaseline && (
@@ -87,6 +90,15 @@ export function Methodology() {
                   )}
                 </tbody>
               </table>
+              <p>
+                <strong>为什么读数从「0–100 分」改成「百分位」。</strong>
+                旧分数是在问答语料上做 Platt 标定的，而真人学生作文的似然比，比问答体真人低 <strong>1.85 个标准差</strong>——
+                也就是说，换到作文体裁，整条标定曲线会平移，同一个「50 分」不再对应任何有意义的操作点。
+                实测：12 篇 AI 腔中文作文，旧口径全部落在 20 分以下（看起来像漏检），改用「在同类真人文本中的百分位」后，
+                全部落在 96 百分位以上。<br />
+                所以现在的读数是：<strong>拿 {LM_ECDF_REFERENCE.counts.essay.toLocaleString()} 篇真人学生作文（或 {LM_ECDF_REFERENCE.counts.qa.toLocaleString()} 篇真人问答答案）当尺子，你的文字排在第几百分位</strong>。
+                百分位按体裁归一化，换题材也读得准；参照系的选择规则写在代码里（中文长文走作文基线，英文或短文走问答基线），可以随时核对。
+              </p>
               <p className="calibration-moral">
                 <strong>把失效的地方也写出来，才算模型卡。</strong>
                 跨域只有 {LM_REFERENCE.crossDomainAuc !== null ? LM_REFERENCE.crossDomainAuc.toFixed(3) : '—'} 这件事，恰恰证明了本站一直在说的话：

@@ -10,4 +10,6 @@ calibration/raw/
 # 派生产物：v3 语料（213MB）与训练/留出切分（含原文），可脚本重建，不入库
 calibration/corpus/
 calibration/lm/
+# 真人作文抽样（1.9MB，来自 ReIceCream/zuowen，CC BY-NC 4.0）：可脚本重建，不入库
+calibration/essays/
 .workbuddy/

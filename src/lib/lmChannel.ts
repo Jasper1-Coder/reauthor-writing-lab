@@ -2,6 +2,7 @@ import lmMeta from '../data/lmModel.json'
 import lmValid from '../data/lmValidation.json'
 import lmMetaModern from '../data/lmModelModern.json'
 import lmValidModern from '../data/lmValidationModern.json'
+import lmEcdf from '../data/lmEcdf.json'
 import {
   DEQUANT,
   LM_MASK,
@@ -48,6 +49,62 @@ export interface LmSentenceReading {
   delta: number
 }
 
+/**
+ * 百分位的参照系：问答体真人分布 / 作文体真人分布。
+ * 必须分开——真人作文的 delta 比问答体真人低 1.85 个标准差（p50 −1.23 vs −0.26），
+ * 用问答基线去量作文，会把所有文本推到接近 100 百分位。
+ */
+export type LmBaseline = 'qa' | 'essay'
+
+/**
+ * 选参照系。本站的产品定位是给学生的作业与作文用，所以中文长文默认走作文基线；
+ * 英文或短文本走问答基线（那是训练语料本来的体裁）。
+ * 规则故意保持简单可解释：中文字符占比 ≥ 50% 且长度 ≥ 200 字 → 作文。
+ */
+export function pickBaseline(text: string): LmBaseline {
+  const cjk = (text.match(/[\u4e00-\u9fff]/g) ?? []).length
+  const ratio = cjk / Math.max(1, text.length)
+  return ratio >= 0.5 && text.length >= 200 ? 'essay' : 'qa'
+}
+
+const ECDF_QA = (lmEcdf as { qa: number[] }).qa
+const ECDF_ESSAY = (lmEcdf as { essay: number[] }).essay
+
+/**
+ * 把原始 delta 换算成「在同类真人文本中的百分位」（0–100）。
+ *
+ * 为什么不用固定的 Platt 曲线：Platt 参数是在问答体上拟合的，换到作文体裁整条曲线平移，
+ * 「50 分」不再对应任何有意义的操作点——实测 12 篇 AI 腔中文作文全部落在 20 分以下，
+ * 而同一批文本按百分位排，全部落在 96 百分位以上。分数是相对的，参照系必须同体裁。
+ */
+export function percentileOf(delta: number, baseline: LmBaseline): number {
+  const table = baseline === 'essay' ? ECDF_ESSAY : ECDF_QA
+  if (!table?.length) return 0
+  let lo = 0
+  let hi = table.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (table[mid] < delta) lo = mid + 1
+    else hi = mid
+  }
+  return Math.min(100, Math.round((lo / (table.length - 1)) * 100))
+}
+
+const atP = (table: number[], p: number) => table[Math.round(p * (table.length - 1))]
+
+/** 百分位参照系的公开信息（供方法页与结果卡展示） */
+export const LM_ECDF_REFERENCE = {
+  /** 两条提示线：超过它就意味着「比 95% / 99% 的同类真人文本更像 AI」 */
+  qaP95: atP(ECDF_QA, 0.95),
+  qaP99: atP(ECDF_QA, 0.99),
+  essayP95: atP(ECDF_ESSAY, 0.95),
+  essayP99: atP(ECDF_ESSAY, 0.99),
+  counts: (lmEcdf as { meta?: { counts?: { qa: number; essay: number } } }).meta?.counts ?? { qa: 0, essay: 0 },
+  /** 百分位口径自己的局限（与模型卡 caveats 分开展示，避免互相掩盖） */
+  limitations: (lmEcdf as { meta?: { limitations?: string[] } }).meta?.limitations ?? [],
+  builtAt: (lmEcdf as { meta?: { builtAt?: string } }).meta?.builtAt ?? '',
+}
+
 export interface LmChannelResult {
   available: boolean
   /** 0–100 标定读数，越大越接近训练语料中的 AI 文风 */
@@ -64,6 +121,13 @@ export interface LmChannelResult {
   dialects?: { chatgpt2023: number | null; modern: number | null }
   /** 哪一个方言更接近（用于向学生解释这句为什么被判高） */
   closestDialect?: 'chatgpt2023' | 'modern'
+  /**
+   * 该文本在「同类真人文本」中的百分位（0–100）：越大越偏离真人写作的常态。
+   * 这是跨体裁可靠的那个读数——绝对值随体裁平移，百分位不会。
+   */
+  percentile?: number
+  /** 百分位的参照系 */
+  baseline?: LmBaseline
 }
 
 export const LM_REFERENCE = {
@@ -328,9 +392,15 @@ export async function runLmChannel(text: string): Promise<LmChannelResult | null
     if (r.available) results.push({ key: 'modern', r })
   }
   if (results.length === 0) return null
-  const winner = results.reduce((a, b) => (b.r.score > a.r.score ? b : a))
+  // 按原始 delta 选方言，不按 score 选：score 经过 Math.round 取整，
+  // 真人文本大量并列在 0–3 分，按 score 取最大会把排序压平
+  // （实测同一批文本：按 score 取最大 AUC 0.888，按 delta 取最大 0.981）。
+  const winner = results.reduce((a, b) => (b.r.delta > a.r.delta ? b : a))
+  const baseline = pickBaseline(text)
   return {
     ...winner.r,
+    percentile: percentileOf(winner.r.delta, baseline),
+    baseline,
     dialects: {
       chatgpt2023: results.find((x) => x.key === 'chatgpt2023')?.r.score ?? null,
       modern: results.find((x) => x.key === 'modern')?.r.score ?? null,

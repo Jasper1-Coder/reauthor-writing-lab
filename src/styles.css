@@ -1445,3 +1445,16 @@ a { color: inherit; }
 @media (max-width: 520px) {
   .lm-dialects { grid-template-columns: 1fr; }
 }
+
+/* v0.15 百分位主读数：绝对值随体裁平移，百分位不会 */
+.lm-percentile-note {
+  margin: 4px 0 14px;
+  padding: 10px 12px;
+  border-left: 3px solid #00b96b;
+  background: rgba(0, 185, 107, 0.06);
+  border-radius: 0 8px 8px 0;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text-2, #4b5563);
+}
+.lm-percentile-note strong { color: var(--text-1, #111827); }
