@@ -70,6 +70,9 @@ export function Methodology() {
                   <tr><td>域内留出集 AUC</td><td><strong>{LM_REFERENCE.holdoutAuc.toFixed(3)}</strong></td><td>{LM_REFERENCE.holdoutN.toLocaleString()} 篇，按题目哈希 + 近似重复聚类分组切分（并查集），同组不跨集</td></tr>
                   <tr><td>5 折交叉验证</td><td><strong>{LM_REFERENCE.cvAuc.toFixed(3)} ± {LM_REFERENCE.cvAucStd.toFixed(3)}</strong></td><td>标定参数用折外预测拟合，不在测试集上挑</td></tr>
                   <tr><td>宏平均 AUC</td><td><strong>{LM_REFERENCE.macroAuc.toFixed(3)}</strong></td><td>12 个领域等权，避免单一领域刷分</td></tr>
+                  <tr><td>人写 vs 2023 ChatGPT（方言 A）</td><td><strong>{LM_REFERENCE.holdoutAuc.toFixed(3)}</strong></td><td>阈值 50 召回 {(LM_REFERENCE.sensitivity * 100).toFixed(1)}%，特异度 {(LM_REFERENCE.specificity * 100).toFixed(1)}%</td></tr>
+                  <tr><td>人写 vs 2025–26 现代模型（方言 B）</td><td><strong>{LM_REFERENCE_MODERN.holdoutAuc.toFixed(3)}</strong></td><td>阈值 50 召回 {LM_REFERENCE_MODERN.recall50 !== null ? (LM_REFERENCE_MODERN.recall50 * 100).toFixed(1) : '—'}%，特异度 {(LM_REFERENCE_MODERN.specificity * 100).toFixed(1)}%</td></tr>
+                  <tr><td>方言 B 抹掉排版后 AUC</td><td><strong>0.946</strong></td><td>markdown / 分点 / 换行全部抹平后仍是 0.946（原始 0.944），排版类单特征全部掉到 0.500——判别力不靠格式</td></tr>
                   <tr className="lm-row-warn"><td>学术论文跨域 AUC</td><td><strong>{LM_REFERENCE.crossDomainAuc !== null ? LM_REFERENCE.crossDomainAuc.toFixed(3) : '—'}</strong></td><td>n={LM_REFERENCE.crossDomainN}，等于抛硬币——本通道在论文场景失效</td></tr>
                   <tr className="lm-row-warn"><td>阈值 50 灵敏度 / 特异度</td><td><strong>{(LM_REFERENCE.sensitivity * 100).toFixed(1)}% / {(LM_REFERENCE.specificity * 100).toFixed(1)}%</strong></td><td>约四分之一真人会被读到高分，这是硬边界</td></tr>
                   {LM_REFERENCE.formatBaseline && (
