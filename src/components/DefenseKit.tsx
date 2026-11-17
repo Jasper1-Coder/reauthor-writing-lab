@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowDownToLine,
+  Check,
   Clipboard,
   Gavel,
   Plus,
   Printer,
   Trash2,
 } from 'lucide-react'
+import { DEFENSE_EVIDENCE } from '../data/defenseEvidence'
 import { buildAppealPacket, ONE_PAGER_LINES, type AppealPacket } from '../lib/appealPacket'
 import type { PlatformRecord } from '../lib/defense'
-import { buildAppealLetterMarkdown, downloadText } from '../lib/report'
+import { buildAppealLetterMarkdown, downloadText, type RewriteEntry } from '../lib/report'
 import type { AnalysisReport, RetrievalChannelResult } from '../lib/types'
+import { loadRewriteEntries } from '../lib/rewriteStore'
 
 interface DefenseKitProps {
   report: AnalysisReport
@@ -49,18 +52,40 @@ function OnePager({ packet }: { packet: AppealPacket }) {
     ? `检索通道覆盖率为 ${Math.round(retrieval.coverage * 100)}%，匹配度偏低，读数仅作定性参考。`
     : `改写前后对照记录 ${rewrite.hasEntries ? `${rewrite.entries.length} 句` : '尚未附上'}。`
 
+  // 老师能听懂的三句话：全部来自带出处的公开证据 + 本案真实读数，不说技术黑话。
+  const biasStudy = DEFENSE_EVIDENCE.find((item) => item.id === 'stanford-esl-bias')
+  const divergenceStudy = DEFENSE_EVIDENCE.find((item) => item.id === 'cnki-paperpass-divergence')
+  const plainLines = [
+    biasStudy
+      ? `检测工具会误伤认真写作的人：${biasStudy.sourceName.split(',')[0]}的研究发现，主流检测器对中国学生的真实作文平均误报率达 ${biasStudy.stat}——用词工整、句式规整反而最容易被冤。`
+      : '检测工具会误伤认真写作的人——用词工整、句式规整的真人写作反而最容易被误判。',
+    divergenceStudy
+      ? `同一个分数根本对不齐：公开调查中同一篇论文在不同平台被判成 ${divergenceStudy.stat}，说明这类百分比没有统一标准，不该当成唯一依据。`
+      : '不同检测平台对同一篇论文的判定可以相差很大，这个百分比不该成为唯一依据。',
+    rewrite.hasEntries
+      ? `这篇我逐句修改过 ${rewrite.entries.length} 处，把空泛的表达改成了具体的论证——这份改写过程可以逐句核对。`
+      : `本站对本文的多条独立读数彼此不一致（分歧度 ${disagreement.spread}），我希望能一起看证据，而不是只看一个数字。`,
+  ]
+
   return (
     <section className="defense-onepager" aria-label="给老师的一页纸">
       <h3>给老师看的 3 条证据</h3>
-      <ol>
-        <li>{evidence1}</li>
-        <li>{evidence2}</li>
-        <li>{evidence3}</li>
+      <p className="onepager-plain-hint">下面三句话可以直接念给老师听，都是能查到出处的事实：</p>
+      <ol className="onepager-plain">
+        {plainLines.map((line) => <li key={line}>{line}</li>)}
       </ol>
       <div className="onepager-lines">
         <p>{ONE_PAGER_LINES[0]}</p>
         <p>{ONE_PAGER_LINES[1]}</p>
       </div>
+      <details className="onepager-tech">
+        <summary>展开看技术依据（给懂行的人核对，含出处与复现命令）</summary>
+        <ol>
+          <li>{evidence1}</li>
+          <li>{evidence2}</li>
+          <li>{evidence3}</li>
+        </ol>
+      </details>
     </section>
   )
 }
@@ -73,6 +98,9 @@ export function DefenseKit({ report, retrieval, onToast }: DefenseKitProps) {
   const [timeline, setTimeline] = useState('')
   const [evidenceNotes, setEvidenceNotes] = useState('')
   const [aiUsage, setAiUsage] = useState('')
+  // 改写工作台记录的学生真实改写，自动带入申诉证据包板块 5。
+  // 只在报告变化时读一次本机草稿，避免每次输入都触发读盘。
+  const [rewriteEntries] = useState<RewriteEntry[]>(() => loadRewriteEntries(report))
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
@@ -87,8 +115,9 @@ export function DefenseKit({ report, retrieval, onToast }: DefenseKitProps) {
       timeline,
       evidenceNotes,
       aiUsage,
+      rewriteEntries,
     }),
-    [report, retrieval, platform, score, records, timeline, evidenceNotes, aiUsage],
+    [report, retrieval, platform, score, records, timeline, evidenceNotes, aiUsage, rewriteEntries],
   )
 
   const addRecord = () => {
@@ -140,6 +169,34 @@ export function DefenseKit({ report, retrieval, onToast }: DefenseKitProps) {
 
       {/* 功能点 4 · 给老师的一页纸 */}
       <OnePager packet={packet} />
+
+      {/* 完成度自检：让学生一眼看到还差什么，避免交出空模板却不知情 */}
+      {!packet.degraded && (() => {
+        const checks = [
+          { label: '被判平台与分数', done: packet.verdict.judgedScore !== null && packet.verdict.judgedPlatform !== '' },
+          { label: '写作时间线', done: packet.selfStatement.timeline.trim() !== '' },
+          { label: '修改痕迹与过程证据', done: packet.selfStatement.evidenceNotes.trim() !== '' },
+          { label: 'AI 工具使用声明', done: packet.selfStatement.aiUsage.trim() !== '' },
+        ]
+        const doneCount = checks.filter((item) => item.done).length
+        return (
+          <div className="appeal-checklist" role="note">
+            <div className="appeal-checklist-head">
+              <strong>导出前自检 · {doneCount}/{checks.length} 项已填</strong>
+              <span>{doneCount === checks.length ? '资料齐全，可以导出了。' : '下面是空的或待填项，补齐后说明会更有力；留空也能先导出。'}</span>
+            </div>
+            <div className="appeal-checklist-items">
+              {checks.map((item) => (
+                <span key={item.label} className={item.done ? 'check-done' : 'check-todo'}>
+                  {item.done ? <Check size={14} /> : <span className="check-dot" aria-hidden="true" />}
+                  {item.label}
+                  <em>{item.done ? '已填' : '待补'}</em>
+                </span>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       {packet.degraded && (
         <div className="defense-degraded-banner" role="alert">
@@ -193,7 +250,11 @@ export function DefenseKit({ report, retrieval, onToast }: DefenseKitProps) {
 
       <section className="defense-step">
         <header><span>STEP 4</span><h4>写作过程自述</h4></header>
-        <p className="defense-note">以下三段必须如实填写，拒绝代写与虚构；未填写时导出稿仅保留占位引导，不会替你编造过程。</p>
+        <p className="defense-note">
+          {rewriteEntries.length > 0
+            ? `你在改写工作台改写的 ${rewriteEntries.length} 句已自动带入上面的对照表，不用在这里重复。下面三段是只有你知道的过程，如实填写会让说明更有力；暂时写不出也能先导出，留空处会保留填写提示，我们绝不替你编造。`
+            : '这三段是只有你知道的过程，如实填写会让说明更有力；暂时写不出也能先导出，留空处会保留填写提示，我们绝不替你编造。拒绝代写与虚构。'}
+        </p>
         <div className="process-form">
           <label>
             写作时间线（必须如实，拒绝代写与虚构）

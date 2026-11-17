@@ -16,6 +16,7 @@ import {
   downloadText,
   type RewriteEntry,
 } from '../lib/report'
+import { loadDrafts, loadRewriteEntries, pickTargets, rewriteStorageKey, type Draft } from '../lib/rewriteStore'
 import type { AnalysisReport, SentenceAnalysis } from '../lib/types'
 
 interface RewriteWorkbenchProps {
@@ -24,45 +25,18 @@ interface RewriteWorkbenchProps {
   onUseFullText: (text: string) => void
 }
 
-interface Draft {
-  text: string
-  reason: string
-}
-
-const STORAGE_PREFIX = 'reauthor-rewrites-v1:'
-
-function storageKey(report: AnalysisReport) {
-  return `${STORAGE_PREFIX}${report.createdAt}`
-}
-
-function loadDrafts(report: AnalysisReport): Record<number, Draft> {
-  try {
-    const raw = window.localStorage.getItem(storageKey(report))
-    if (!raw) return {}
-    const parsed = JSON.parse(raw) as Record<number, Draft>
-    return parsed && typeof parsed === 'object' ? parsed : {}
-  } catch {
-    return {}
-  }
-}
-
 const levelName = { priority: '优先改写', review: '建议复核', low: '低特征' }
 
 export function RewriteWorkbench({ report, onToast, onUseFullText }: RewriteWorkbenchProps) {
   const context = useMemo(() => makeScoringContext(report.originalText, report.language), [report])
-  // 挑出最值得动手的句子：按原句特征值降序，最多 6 句。若全都很低也至少给 3 句作为练习。
-  const targets = useMemo(() => {
-    const ranked = [...report.sentenceAnalyses].sort((a, b) => b.score - a.score)
-    const needy = ranked.filter((s) => s.level !== 'low')
-    return (needy.length >= 3 ? needy : ranked).slice(0, 6)
-  }, [report])
+  const targets = useMemo(() => pickTargets(report), [report])
 
   const [drafts, setDrafts] = useState<Record<number, Draft>>(() => loadDrafts(report))
   const [expandedId, setExpandedId] = useState<number | null>(targets[0]?.id ?? null)
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(storageKey(report), JSON.stringify(drafts))
+      window.localStorage.setItem(rewriteStorageKey(report), JSON.stringify(drafts))
     } catch {
       // 隐私模式或存储配额满时静默降级，不影响改写功能
     }
@@ -95,25 +69,7 @@ export function RewriteWorkbench({ report, onToast, onUseFullText }: RewriteWork
     })
   }
 
-  const buildEntries = (): RewriteEntry[] =>
-    targets
-      .filter((s) => drafts[s.id]?.text?.trim())
-      .map((sentence) => {
-        const draft = drafts[sentence.id]
-        const scored = scoredDrafts.get(sentence.id)
-        const cleared = sentence.patternHits
-          .filter((hit) => !draft.text.includes(hit.phrase))
-          .map((hit) => hit.phrase)
-        return {
-          sentenceId: sentence.id,
-          original: sentence.text,
-          draft: draft.text.trim(),
-          originalScore: sentence.score,
-          draftScore: scored?.score ?? sentence.score,
-          reason: draft.reason.trim(),
-          hitsCleared: [...new Set(cleared)],
-        }
-      })
+  const buildEntries = (): RewriteEntry[] => loadRewriteEntries(report)
 
   const exportComparison = () => {
     const entries = buildEntries()

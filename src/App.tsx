@@ -7,6 +7,8 @@ import type { AnalysisReport } from './lib/types'
 
 export default function App() {
   const [report, setReport] = useState<AnalysisReport | null>(null)
+  // 保留上一份报告（改前），供"改后全文回填重测"后做整篇前后对比。
+  const [previousReport, setPreviousReport] = useState<AnalysisReport | null>(null)
   const [toast, setToast] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const [incomingText, setIncomingText] = useState<{ text: string; nonce: number } | undefined>(undefined)
@@ -79,12 +81,17 @@ export default function App() {
           </div>
         </section>
 
-        <Analyzer onAnalyzed={setReport} onToast={showToast} incomingText={incomingText} />
+        <Analyzer
+          onAnalyzed={(next) => { setPreviousReport(report); setReport(next) }}
+          onToast={showToast}
+          incomingText={incomingText}
+        />
         {report && (
           <Results
             report={report}
+            previousReport={previousReport}
             onToast={showToast}
-            onUseFullText={(text) => setIncomingText({ text, nonce: Date.now() })}
+            onUseFullText={(text) => { setPreviousReport(report); setIncomingText({ text, nonce: Date.now() }) }}
           />
         )}
         <Methodology />

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   AlertCircle,
   ArrowDownToLine,
+  ArrowRight,
   Check,
   ChevronDown,
   Clipboard,
@@ -28,6 +29,7 @@ import type { AnalysisReport, RetrievalChannelResult, SentenceAnalysis } from '.
 
 interface ResultsProps {
   report: AnalysisReport
+  previousReport?: AnalysisReport | null
   onToast: (message: string) => void
   onUseFullText: (text: string) => void
 }
@@ -76,7 +78,7 @@ function SentenceRow({ sentence, expanded, onToggle }: { sentence: SentenceAnaly
   )
 }
 
-export function Results({ report, onToast, onUseFullText }: ResultsProps) {
+export function Results({ report, previousReport, onToast, onUseFullText }: ResultsProps) {
   const [tab, setTab] = useState<Tab>('sentences')
   const [filter, setFilter] = useState<Filter>('all')
   const [retr, setRetr] = useState<RetrievalChannelResult>({ status: 'idle', message: '' })
@@ -141,6 +143,31 @@ export function Results({ report, onToast, onUseFullText }: ResultsProps) {
             : '通道严重分歧。任何检测网站此时给出的精确百分比（包括本站）都不应被引用。',
     }
   }, [report, retr])
+
+  const comparison = useMemo(() => {
+    if (!previousReport || previousReport.createdAt === report.createdAt) return null
+    const delta = report.score - previousReport.score
+    const metricRows = report.metrics.map((metric) => {
+      const before = previousReport.metrics.find((item) => item.id === metric.id)
+      return {
+        id: metric.id,
+        label: metric.label,
+        before: before?.score ?? metric.score,
+        after: metric.score,
+        delta: metric.score - (before?.score ?? metric.score),
+      }
+    })
+    return {
+      scoreBefore: previousReport.score,
+      scoreAfter: report.score,
+      scoreDelta: delta,
+      flaggedBefore: previousReport.sentenceAnalyses.filter((s) => s.level !== 'low').length,
+      flaggedAfter: report.sentenceAnalyses.filter((s) => s.level !== 'low').length,
+      spreadBefore: previousReport.crossValidation.spread,
+      spreadAfter: report.crossValidation.spread,
+      metricRows,
+    }
+  }, [report, previousReport])
 
   const launchRetrieval = async () => {
     if (retr.status === 'loading' || retr.status === 'running') return
@@ -248,6 +275,51 @@ export function Results({ report, onToast, onUseFullText }: ResultsProps) {
           <button type="button" onClick={() => jumpToTab('defense')}>被判了，要申诉</button>
         </div>
       </div>
+
+      {comparison && (
+        <section className="comparison-panel" aria-label="改前改后对比">
+          <div className="comparison-head">
+            <span className="eyebrow">BEFORE / AFTER · 你的修订轨迹</span>
+            <h3>和上一版比，改出了什么变化？</h3>
+            <p>下面是同一套公开规则下，两次分析的读数差异。<strong>特征指数下降只说明表层信号变了，不等于文章质量提高</strong>，更不构成作者身份判定。</p>
+          </div>
+          <div className="comparison-scores">
+            <div className="comparison-score before">
+              <span>改前</span><strong>{comparison.scoreBefore}</strong><small>特征指数</small>
+            </div>
+            <ArrowRight size={22} aria-hidden="true" />
+            <div className="comparison-score after">
+              <span>改后</span><strong>{comparison.scoreAfter}</strong>
+              <small>
+                {comparison.scoreDelta < 0
+                  ? `↓ 下降 ${Math.abs(comparison.scoreDelta)} 分`
+                  : comparison.scoreDelta > 0
+                    ? `↑ 上升 ${comparison.scoreDelta} 分`
+                    : '没有变化'}
+              </small>
+            </div>
+            <div className="comparison-side-stats">
+              <div><span>待复核句</span><strong>{comparison.flaggedBefore} → {comparison.flaggedAfter}</strong></div>
+              <div><span>通道分歧度</span><strong>{comparison.spreadBefore} → {comparison.spreadAfter}</strong></div>
+            </div>
+          </div>
+          <div className="comparison-metrics">
+            {comparison.metricRows.map((row) => (
+              <div className="comparison-metric" key={row.id}>
+                <span>{row.label}</span>
+                <div className="comparison-metric-track">
+                  <i className="cmp-before" style={{ width: `${row.before}%` }} title={`改前 ${row.before}`} />
+                  <i className="cmp-after" style={{ width: `${row.after}%` }} title={`改后 ${row.after}`} />
+                </div>
+                <strong className={row.delta < 0 ? 'improved' : row.delta > 0 ? 'worse' : ''}>
+                  {row.before} → {row.after}
+                </strong>
+              </div>
+            ))}
+          </div>
+          <p className="comparison-legend"><i className="cmp-before" /> 改前 <i className="cmp-after" /> 改后 · 深色为改后读数</p>
+        </section>
+      )}
 
       <details className="tech-details">
         <summary>

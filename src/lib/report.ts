@@ -1,4 +1,5 @@
 import { RETRIEVAL_UNAVAILABLE, REWRITE_PLACEHOLDER, type AppealPacket } from './appealPacket'
+import { DEFENSE_EVIDENCE } from '../data/defenseEvidence'
 import type { AnalysisReport, Metric } from './types'
 
 export interface RevisionItem {
@@ -274,14 +275,25 @@ export function buildAppealLetterMarkdown(packet: AppealPacket): string {
     '',
     selfStatement.isPlaceholder ? selfStatement.placeholder.aiUsage : selfStatement.aiUsage,
     '',
-    '## 七、脚注（本站公开证据 / 可复现管线）',
+    '## 七、公开可查证的检测器可靠性证据',
+    '',
+    '以下每条都来自公开研究或报道，附原始出处可点开核对——它们说明"AI 率"为何不能作为单一判定依据：',
+    '',
+    ...DEFENSE_EVIDENCE.flatMap((item, index) => [
+      `**证据 ${index + 1}：${item.title}（${item.year}）**`,
+      '',
+      `- 关键数据：${item.stat}`,
+      `- 出处：[${item.sourceName}](${item.sourceUrl})`,
+      '',
+    ]),
+    '## 八、脚注（本站公开证据 / 可复现管线）',
     '',
     '- crossDomainValidation.json（本站跨域验证真实数字，生成于 2026-11-16）',
     '- calibratedModel.json（留出折 AUC 0.930±0.007，协议见 meta.protocol）',
     '- scripts/crossdomain-test.ts（运行：npx tsx scripts/crossdomain-test.ts）',
     '- scripts/train-model.ts（可复现训练管线）',
     '',
-    '## 八、申诉请求（按学校流程调整）',
+    '## 九、申诉请求（按学校流程调整）',
     '',
     '1. **请求人工复核**：援引海南多所高校"机器初检、人工复核"双保险、广州大学"人工复核 + 委员会研判"等制度先例，请求对 AIGC 检测结果进行人工复核，而非以算法分数直接定性。',
     '2. **请求检测方披露校准数据**：要求说明所用检测系统在中文（或相应语种）学术文本上的误报率、漏报率及校准数据集。参照：OpenAI 因"低准确率"于 2023 年 7 月下线自家检测器；范德堡大学以可靠性为由停用 Turnitin AI 检测。',

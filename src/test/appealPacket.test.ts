@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { SAMPLE_ZH } from '../data/samples'
+import { DEFENSE_EVIDENCE } from '../data/defenseEvidence'
 import { analyzeText } from '../lib/analyzer'
 import {
   DEGRADED_NOTICE,
@@ -145,7 +146,18 @@ describe('AC-1 · 导出信内容完整性', () => {
     expect(md).toContain(SELF_PLACEHOLDER.aiUsage)
     expect(md).toContain(SINGLE_PERCENTAGE_CAVEAT)
     expect(md).toContain(ETHICS_NOTICE)
-    expect(md).toContain('## 八、申诉请求')
+    expect(md).toContain('## 九、申诉请求')
+  })
+
+  it('导出信含带出处的公开可靠性证据（防止证据库退化为死代码）', () => {
+    const packet = buildAppealPacket(report, retrieval)
+    const md = buildAppealLetterMarkdown(packet)
+    expect(md).toContain('## 七、公开可查证的检测器可靠性证据')
+    // 每条证据必须有出处链接，学生才能点开核对
+    DEFENSE_EVIDENCE.forEach((item) => {
+      expect(md).toContain(item.title)
+      expect(md).toContain(item.sourceUrl)
+    })
   })
 
   it('改写记录存在时逐句列出原文/改写/理由/分数变化', () => {
