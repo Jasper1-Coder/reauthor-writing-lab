@@ -2,15 +2,19 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowDownToLine,
   Check,
+  ChevronDown,
   Clipboard,
   Gavel,
+  Info,
   Plus,
   Printer,
+  Scale,
   Trash2,
 } from 'lucide-react'
 import { DEFENSE_EVIDENCE } from '../data/defenseEvidence'
 import { buildAppealPacket, ONE_PAGER_LINES, type AppealPacket } from '../lib/appealPacket'
 import type { PlatformRecord } from '../lib/defense'
+import { fuseVerdicts, fusionToAppealText, type FusionResult } from '../lib/verdictFusion'
 import { buildAppealLetterMarkdown, downloadText, type RewriteEntry } from '../lib/report'
 import type { AnalysisReport, RetrievalChannelResult } from '../lib/types'
 import { loadRewriteEntries } from '../lib/rewriteStore'
@@ -90,11 +94,99 @@ function OnePager({ packet }: { packet: AppealPacket }) {
   )
 }
 
+/**
+ * 多平台判定拆解面板。
+ * 措辞红线：只陈述可核查事实 + 合理质疑 + 透明折扣，绝不做"平台故意判高牟利"的动机断言。
+ * 评估对象是判定本身的证据强度，不是学生是否使用 AI。
+ */
+function FusionPanel({ fusion }: { fusion: FusionResult }) {
+  if (fusion.records.length === 0) {
+    return (
+      <div className="fusion-panel fusion-empty">
+        <Scale size={18} />
+        <p><strong>判定拆解</strong> · 录入上方平台分数后，这里会把每条判定按可核查事实逐项折减，给出"这些数字合起来有多可信"的结论——不是再给你一个 AI 分数。</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fusion-panel">
+      <div className="fusion-head">
+        <Scale size={19} />
+        <div>
+          <h4>判定拆解 · 把它们的分数拆开看</h4>
+          <p>下面的折扣只依据你勾选的、能在平台官网核实的事实。规则全部摊开，你可以自己复核；这只是对"判定可信度"的评估，不是对你是不是用 AI 的判定。</p>
+        </div>
+      </div>
+
+      <div className={`fusion-strength strength-${fusion.strengthLevel}`}>
+        <div className="fusion-strength-score">
+          <span>证据强度评估</span>
+          <strong>{fusion.weightedEvidence}<small>/100</small></strong>
+          <em>{fusion.strengthLabel}</em>
+        </div>
+        <div className="fusion-strength-meta">
+          <div><span>录入判定</span><strong>{fusion.records.length} 条</strong></div>
+          <div><span>原始均分</span><strong>{fusion.meanRaw}%</strong></div>
+          <div><span>平台极差</span><strong>{fusion.scoreRange} 个百分点</strong></div>
+          <div><span>利益冲突标记</span><strong>{fusion.conflictCount} 条</strong></div>
+        </div>
+      </div>
+      <p className="fusion-dim-note">上方 /100 是对"这些判定有多可信"的评估，<strong>不是新的 AI 率</strong>；原始分数原样保留在下方，可自行核对。</p>
+
+      <details className="fusion-rule-disclosure">
+        <summary>查看折扣规则（依据的是什么、不代表什么）</summary>
+        <div>
+          <p><strong>规则</strong>：仅当你勾选了可在平台官网核实的事实，才对那条判定的"结论权重"做下调；原始分数、平台名、日期都不改动。</p>
+          <ul>
+            <li>同时提供付费改稿 / 降重 / 二次检测服务 → 权重 −25</li>
+            <li>未公开中文学术文本误报率 / 校准数据 → 权重 −20</li>
+            <li>多平台判定极差 ≥30 个百分点 → 每条权重 −10；≥15 → −5</li>
+          </ul>
+          <p><strong>不代表</strong>：我们认定任何平台"故意判高"或动机不纯。检测与改稿由同一主体提供，只是<strong>应披露的商业关系</strong>；据此下调权重供你参考，是否采信由你决定。默认全部不勾选，不含任何折扣。</p>
+        </div>
+      </details>
+
+      <p className="fusion-conclusion">{fusion.conclusion}</p>
+
+      <div className="fusion-records">
+        {fusion.records.map((item, index) => (
+          <details className="fusion-record" key={`${item.record.platform}-${index}`}>
+            <summary>
+              <strong>{item.record.platform || '未命名平台'}</strong>
+              <span>{item.record.score}% → 权重 {item.evidenceWeight}/100</span>
+              <ChevronDown size={15} className="tech-chevron" />
+            </summary>
+            <div className="fusion-record-body">
+              {item.discounts.length === 0 ? (
+                <p>{item.note}</p>
+              ) : (
+                <ul>
+                  {item.discounts.map((discount) => (
+                    <li key={discount.label}>
+                      <strong>−{discount.amount}</strong> {discount.label}
+                      <span>{discount.basis}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </details>
+        ))}
+      </div>
+
+      <p className="fusion-caveat"><Info size={14} /> {fusion.caveat}</p>
+    </div>
+  )
+}
+
 export function DefenseKit({ report, retrieval, onToast }: DefenseKitProps) {
   const [records, setRecords] = useState<PlatformRecord[]>(loadRecords)
   const [platform, setPlatform] = useState('')
   const [score, setScore] = useState('')
   const [date, setDate] = useState('')
+  const [sellsRewrite, setSellsRewrite] = useState(false)
+  const [hasCalibration, setHasCalibration] = useState(false)
   const [timeline, setTimeline] = useState('')
   const [evidenceNotes, setEvidenceNotes] = useState('')
   const [aiUsage, setAiUsage] = useState('')
@@ -105,6 +197,9 @@ export function DefenseKit({ report, retrieval, onToast }: DefenseKitProps) {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
   }, [records])
+
+  // 多平台判定的证据拆解：把外部判定按可核查事实折扣，评估其证据强度（非作者身份判定）
+  const fusion: FusionResult = useMemo(() => fuseVerdicts(records), [records])
 
   // 已算好的本报告证据自动带入；学生只需补充平台信息与写作过程自述
   const packet = useMemo(
@@ -127,23 +222,35 @@ export function DefenseKit({ report, retrieval, onToast }: DefenseKitProps) {
       onToast('请填写平台名称和 0–100 之间的检测值')
       return
     }
-    setRecords((current) => [...current, { platform: trimmed, score: Math.round(value), date: date.trim() }])
+    setRecords((current) => [
+      ...current,
+      {
+        platform: trimmed,
+        score: Math.round(value),
+        date: date.trim(),
+        sellsRewriteService: sellsRewrite,
+        publishedCalibration: hasCalibration,
+      },
+    ])
     setPlatform('')
     setScore('')
     setDate('')
+    setSellsRewrite(false)
+    setHasCalibration(false)
     onToast('已录入，可继续添加其他平台做对照')
   }
 
+  const fusionText = fusionToAppealText(fusion)
   const generateDocument = () => {
     if (packet.degraded) return
-    const markdown = buildAppealLetterMarkdown(packet)
+    const markdown = buildAppealLetterMarkdown(packet, fusionText)
     downloadText(markdown, `reauthor-appeal-letter-${new Date().toISOString().slice(0, 10)}.md`)
     onToast('申诉信已下载，请确认写作过程自述如实填写后再提交')
   }
 
   const copyDocument = async () => {
     if (packet.degraded) return
-    const markdown = buildAppealLetterMarkdown(packet)
+    const markdown = buildAppealLetterMarkdown(packet, fusionText)
     try {
       await navigator.clipboard.writeText(markdown)
       onToast('申诉信已复制到剪贴板，请确认写作过程自述如实填写后再提交')
@@ -218,6 +325,17 @@ export function DefenseKit({ report, retrieval, onToast }: DefenseKitProps) {
           <input value={date} onChange={(event) => setDate(event.target.value)} placeholder="日期（可选）" aria-label="检测日期" />
           <button type="button" onClick={addRecord}><Plus size={15} /> 录入</button>
         </div>
+        <div className="record-flags">
+          <label>
+            <input type="checkbox" checked={sellsRewrite} onChange={(event) => setSellsRewrite(event.target.checked)} />
+            该平台同时提供付费改稿 / 降重 / 二次检测服务
+          </label>
+          <label>
+            <input type="checkbox" checked={hasCalibration} onChange={(event) => setHasCalibration(event.target.checked)} />
+            该平台已公开中文学术文本误报率 / 校准数据
+          </label>
+          <p>只勾选你能在平台官网核实的事实。留空不预设任何平台有问题；勾选后可随时在下方取消。</p>
+        </div>
         {records.length > 0 && (
           <div className="record-table">
             {records.map((record, index) => (
@@ -225,6 +343,9 @@ export function DefenseKit({ report, retrieval, onToast }: DefenseKitProps) {
                 <strong>{record.platform}</strong>
                 <em>{record.score}%</em>
                 <span>{record.date || '—'}</span>
+                {record.sellsRewriteService && <span className="record-flag-tag flag-conflict" title="已标记：同时提供付费改稿服务">利益冲突</span>}
+                {record.publishedCalibration === true && <span className="record-flag-tag flag-cal" title="已标记：公开校准数据">已公开校准</span>}
+                {record.publishedCalibration !== true && <span className="record-flag-tag flag-uncal" title="未标记公开校准数据">校准未公开</span>}
                 <button type="button" onClick={() => setRecords(records.filter((_, i) => i !== index))} aria-label={`删除 ${record.platform} 的记录`}>
                   <Trash2 size={14} />
                 </button>
@@ -232,6 +353,8 @@ export function DefenseKit({ report, retrieval, onToast }: DefenseKitProps) {
             ))}
           </div>
         )}
+
+        <FusionPanel fusion={fusion} />
       </section>
 
       <section className="defense-step">

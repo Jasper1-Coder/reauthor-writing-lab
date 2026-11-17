@@ -169,7 +169,7 @@ export function downloadText(markdown: string, filename: string) {
  * 复用既有 buildRewriteComparisonMarkdown 的逐句口径与 downloadText / 剪贴板路径，
  * 不新增导出机制；样本不足时只产出降级说明，绝不给出可用申诉信。
  */
-export function buildAppealLetterMarkdown(packet: AppealPacket): string {
+export function buildAppealLetterMarkdown(packet: AppealPacket, fusionText?: string): string {
   if (packet.degraded) {
     return ['# 规则观察说明（样本不足）', '', packet.degradedNotice, '', packet.ethicsNotice].join('\n')
   }
@@ -203,6 +203,11 @@ export function buildAppealLetterMarkdown(packet: AppealPacket): string {
     )
   } else {
     lines.push('（尚未录入其他平台的检测结果。）', '')
+  }
+
+  // v0.12：外部判定的证据拆解（可选）。只陈述可核查事实与透明折扣，不做动机断言。
+  if (fusionText && fusionText.trim()) {
+    lines.push('### 对外部检测判定的证据拆解', '', fusionText.trim(), '', '> 该拆解评估的是判定作为证据的可信度，不是对你是否使用 AI 的判定。', '')
   }
 
   lines.push(

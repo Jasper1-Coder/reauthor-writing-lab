@@ -5,6 +5,10 @@ export interface PlatformRecord {
   platform: string
   score: number
   date: string
+  /** 可核查事实：该平台官网是否同时提供付费改稿 / 降重 / 二次检测服务（v0.12，可选，默认未标记） */
+  sellsRewriteService?: boolean
+  /** 可核查事实：该平台是否公开了中文学术文本的误报率 / 校准数据（v0.12，可选，默认未标记） */
+  publishedCalibration?: boolean
 }
 
 /**
