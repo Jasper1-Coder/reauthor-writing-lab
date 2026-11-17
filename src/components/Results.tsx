@@ -149,6 +149,16 @@ export function Results({ report, onToast, onUseFullText }: ResultsProps) {
     setRetr(result)
   }
 
+  const jumpToTab = (target: Tab) => {
+    setTab(target)
+    window.setTimeout(() => {
+      const workspace = document.getElementById('diagnosis-workspace')
+      if (workspace && typeof workspace.scrollIntoView === 'function') {
+        workspace.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 30)
+  }
+
   const copyReport = async () => {
     try {
       await navigator.clipboard.writeText(buildMarkdownReport(report))
@@ -166,7 +176,7 @@ export function Results({ report, onToast, onUseFullText }: ResultsProps) {
       </div>
       <div className="results-heading">
         <div>
-          <p className="eyebrow">EVIDENCE BEFORE VERDICT</p>
+          <p className="eyebrow">先看结论 · 再看依据</p>
           <h2 id="results-title">你的写作诊断报告</h2>
         </div>
         <div className="report-actions">
@@ -224,6 +234,28 @@ export function Results({ report, onToast, onUseFullText }: ResultsProps) {
         </div>
       )}
 
+      <div className="next-step-bar">
+        <div className="next-step-lead">
+          <Lightbulb size={20} />
+          <div>
+            <strong>接下来做什么？</strong>
+            <p>{flaggedCount > 0 ? `报告里有 ${flaggedCount} 句值得多看一眼。` : '这篇暂时没有需要特别留意的句子。'}挑一个入口开始就行：</p>
+          </div>
+        </div>
+        <div className="next-step-actions">
+          <button type="button" onClick={() => jumpToTab('sentences')}>逐句看：为什么被标</button>
+          <button type="button" onClick={() => jumpToTab('rewrite')}>自己动手改一句</button>
+          <button type="button" onClick={() => jumpToTab('defense')}>被判了，要申诉</button>
+        </div>
+      </div>
+
+      <details className="tech-details">
+        <summary>
+          <FlaskConical size={17} />
+          <span>想看分数是怎么算的？展开技术依据（校准 / 权重 / 交叉验证 / 检索）</span>
+          <ChevronDown size={17} className="tech-chevron" />
+        </summary>
+        <div className="tech-details-body">
       <div className="calibration-strip calibrated-strip" role="note">
         <FlaskConical size={19} />
         <p>
@@ -356,14 +388,16 @@ export function Results({ report, onToast, onUseFullText }: ResultsProps) {
           </div>
         </div>
       </div>
+        </div>
+      </details>
 
-      <div className="diagnosis-workspace">
+      <div className="diagnosis-workspace" id="diagnosis-workspace">
         <div className="diagnosis-tabs" role="tablist" aria-label="诊断报告视图">
-          <button type="button" role="tab" id="tab-sentences" aria-controls="panel-sentences" aria-selected={tab === 'sentences'} className={tab === 'sentences' ? 'active' : ''} onClick={() => setTab('sentences')}>逐句批注 <span>{report.stats.sentences}</span></button>
-          <button type="button" role="tab" id="tab-rewrite" aria-controls="panel-rewrite" aria-selected={tab === 'rewrite'} className={tab === 'rewrite' ? 'active' : ''} onClick={() => setTab('rewrite')}>改写工作台 <span>动手</span></button>
+          <button type="button" role="tab" id="tab-sentences" aria-controls="panel-sentences" aria-selected={tab === 'sentences'} className={tab === 'sentences' ? 'active' : ''} onClick={() => setTab('sentences')}>逐句看：为什么被标 <span>{report.stats.sentences}</span></button>
+          <button type="button" role="tab" id="tab-rewrite" aria-controls="panel-rewrite" aria-selected={tab === 'rewrite'} className={tab === 'rewrite' ? 'active' : ''} onClick={() => setTab('rewrite')}>改一改：更像你的 <span>动手</span></button>
+          <button type="button" role="tab" id="tab-defense" aria-controls="panel-defense" aria-selected={tab === 'defense'} className={tab === 'defense' ? 'active' : ''} onClick={() => setTab('defense')}>要申诉：给老师的说明 <span>盾</span></button>
           <button type="button" role="tab" id="tab-revision" aria-controls="panel-revision" aria-selected={tab === 'revision'} className={tab === 'revision' ? 'active' : ''} onClick={() => setTab('revision')}>修改路线 <span>03</span></button>
-          <button type="button" role="tab" id="tab-rubric" aria-controls="panel-rubric" aria-selected={tab === 'rubric'} className={tab === 'rubric' ? 'active' : ''} onClick={() => setTab('rubric')}>判分依据 <span>?</span></button>
-          <button type="button" role="tab" id="tab-defense" aria-controls="panel-defense" aria-selected={tab === 'defense'} className={tab === 'defense' ? 'active' : ''} onClick={() => setTab('defense')}>申诉工作台 <span>盾</span></button>
+          <button type="button" role="tab" id="tab-rubric" aria-controls="panel-rubric" aria-selected={tab === 'rubric'} className={tab === 'rubric' ? 'active' : ''} onClick={() => setTab('rubric')}>分数怎么算的 <span>?</span></button>
         </div>
 
         {tab === 'sentences' && (

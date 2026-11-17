@@ -185,6 +185,7 @@ a { color: inherit; }
 .spin { animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .input-hint { padding: 10px 20px; font-size: 13.5px; color: var(--orange); border-top: 1px dashed var(--line-strong); }
+.input-hint-passive { color: var(--ink-faint); font-size: 12.5px; }
 .analysis-progress {
   display: flex; flex-wrap: wrap; gap: 10px 26px; padding: 16px 20px;
   border-top: 1.5px solid var(--line-strong); background: rgba(22, 106, 74, 0.05);
@@ -1067,3 +1068,82 @@ a { color: inherit; }
 .retrieval-formula { margin-top: 10px; font-size: 11px; line-height: 1.5; color: var(--ink-faint); font-family: var(--mono); }
 @media print { .retrieval-toggle, .neighbor-list { display: none; } }
 .retrieval-loading { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--ink-faint); }
+
+/* ============ v0.9: 学生视角信息架构 — 首屏引导 / 技术折叠 / 选读提示 ============ */
+/* 引导条：结果页首屏，引导学生迈出下一步 */
+.next-step-bar {
+  margin-top: 26px;
+  border: 1.5px solid var(--ink);
+  border-left: 6px solid var(--green);
+  background: var(--paper-raised);
+  padding: 20px 24px;
+}
+.next-step-lead { display: flex; align-items: flex-start; gap: 12px; }
+.next-step-lead > svg { color: var(--green-deep); flex-shrink: 0; margin-top: 2px; }
+.next-step-lead strong { font-size: 16.5px; }
+.next-step-lead p { color: var(--ink-soft); font-size: 14px; margin-top: 2px; }
+.next-step-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.next-step-actions button {
+  font-family: var(--sans); font-size: 14px; font-weight: 600;
+  padding: 10px 16px; border: 1.5px solid var(--ink);
+  background: var(--paper); color: var(--ink); border-radius: 5px;
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.next-step-actions button:first-child { background: var(--ink); color: var(--paper); }
+.next-step-actions button:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--orange); }
+
+/* 技术依据折叠容器（结果页）：默认收起 */
+.tech-details { margin-top: 28px; border: 1px solid var(--line-strong); background: rgba(23, 33, 27, 0.02); }
+.tech-details > summary {
+  list-style: none; display: flex; align-items: center; gap: 10px;
+  padding: 14px 20px; cursor: pointer; font-size: 14px;
+  color: var(--ink-soft); font-weight: 500; user-select: none;
+}
+.tech-details > summary::-webkit-details-marker { display: none; }
+.tech-details > summary:hover { color: var(--ink); background: rgba(23, 33, 27, 0.03); }
+.tech-details > summary svg { flex-shrink: 0; color: var(--ink-faint); }
+.tech-details > summary span { flex: 1; }
+.tech-details > summary .tech-chevron { transition: transform 0.18s; }
+.tech-details[open] > summary .tech-chevron { transform: rotate(180deg); }
+.tech-details[open] > summary { border-bottom: 1px solid var(--line); }
+.tech-details-body { padding: 4px 18px 22px; }
+.tech-details-body .calibration-strip:first-child { margin-top: 18px; }
+
+/* 方法页：选读提示 + 六大技术区块折叠 */
+.methodology-optin {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  border: 1px dashed var(--line-strong); background: var(--paper-raised);
+  padding: 12px 16px; font-size: 13.5px; color: var(--ink-soft);
+}
+.methodology-optin svg { color: var(--green-deep); flex-shrink: 0; margin-right: 2px; }
+.methodology-optin a { color: var(--green-deep); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+.method-fold { border-bottom: 1px solid var(--line-strong); }
+.method-fold:first-of-type { margin-top: 20px; }
+.method-fold > summary {
+  list-style: none; cursor: pointer; user-select: none;
+  padding: 20px 6px; display: grid; gap: 3px;
+  position: relative; transition: background 0.15s;
+}
+.method-fold > summary::-webkit-details-marker { display: none; }
+.method-fold > summary:hover { background: rgba(23, 33, 27, 0.02); }
+.method-fold > summary::after {
+  content: "+"; position: absolute; right: 10px; top: 22px;
+  font-family: var(--mono); font-size: 22px; color: var(--green-deep);
+}
+.method-fold[open] > summary::after { content: "−"; }
+.method-fold-kicker { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em; color: var(--orange); }
+.method-fold > summary strong { font-family: var(--serif-en); font-size: clamp(18px, 2.4vw, 23px); font-weight: 700; line-height: 1.35; padding-right: 40px; }
+.method-fold-hint { font-size: 13px; color: var(--ink-faint); }
+.method-fold-body { padding-bottom: 12px; }
+.method-fold-body .calibration-section:first-child { margin-top: 8px; border-top: none; padding-top: 0; }
+
+@media (max-width: 620px) {
+  .next-step-actions button { flex: 1 1 100%; text-align: center; }
+}
+
+@media print {
+  .tech-details > summary, .method-fold > summary { cursor: default; }
+  .tech-details:not([open]) > .tech-details-body,
+  .method-fold:not([open]) > .method-fold-body { display: block; }
+}

@@ -36,7 +36,7 @@ function OnePager({ packet }: { packet: AppealPacket }) {
   if (packet.degraded) {
     return (
       <section className="defense-onepager" aria-label="给老师的一页纸">
-        <h3>给老师的一页纸 · 本案三条最强证据</h3>
+        <h3>给老师看的 3 条证据</h3>
         <p className="defense-degraded-notice">{packet.degradedNotice}</p>
       </section>
     )
@@ -51,7 +51,7 @@ function OnePager({ packet }: { packet: AppealPacket }) {
 
   return (
     <section className="defense-onepager" aria-label="给老师的一页纸">
-      <h3>给老师的一页纸 · 本案三条最强证据</h3>
+      <h3>给老师看的 3 条证据</h3>
       <ol>
         <li>{evidence1}</li>
         <li>{evidence2}</li>
@@ -130,8 +130,8 @@ export function DefenseKit({ report, retrieval, onToast }: DefenseKitProps) {
       <div className="defense-intro">
         <Gavel size={22} />
         <div>
-          <h3>一案一证：把本报告已算好的证据，装成学生能直接交给老师的申诉信。</h3>
-          <p>下面四步自动带入本报告的真实读数，你只需补充只有你本人知道的写作过程。所有信息请如实填写。</p>
+          <h3>被判了不认？这里帮你把话说清楚。</h3>
+          <p>下面会自动带出这份报告的证据，整理成一页能直接交给老师的说明。你只需补充只有你本人知道的写作过程，且务必如实填写。</p>
         </div>
       </div>
 

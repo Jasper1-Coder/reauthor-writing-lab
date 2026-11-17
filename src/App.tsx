@@ -41,9 +41,9 @@ export default function App() {
           <span><strong>ReAuthor</strong><small>重写权 · 学生写作诊断台</small></span>
         </a>
         <nav className={menuOpen ? 'open' : ''} aria-label="主导航">
-          <a href="#analyzer" onClick={() => setMenuOpen(false)}>检测台</a>
-          <a href="#methodology" onClick={() => setMenuOpen(false)}>评分方法</a>
-          <a href="#manifesto" onClick={() => setMenuOpen(false)}>学生宣言</a>
+          <a href="#analyzer" onClick={() => setMenuOpen(false)}>开始诊断</a>
+          <a href="#methodology" onClick={() => setMenuOpen(false)}>原理说明（选读）</a>
+          <a href="#manifesto" onClick={() => setMenuOpen(false)}>我们的立场</a>
           <a className="nav-github" href="https://github.com/Jasper1-Coder/reauthor-writing-lab" target="_blank" rel="noreferrer"><Github size={16} /> GitHub</a>
           <button className="nav-close" type="button" aria-label="关闭菜单" onClick={() => setMenuOpen(false)}><X size={20} /></button>
         </nav>
@@ -53,18 +53,17 @@ export default function App() {
       <main>
         <section className="hero">
           <div className="hero-copy">
-            <p className="hero-kicker">STUDENT-OWNED WRITING FORENSICS · BY STUDENTS, FOR STUDENTS</p>
-            <h1>你的文字，<br />不该只剩一个<br /><em>AI 百分比。</em></h1>
-            <p className="hero-lead">ReAuthor 是给中文和英文写作者的诊断台：像编辑一样逐句批注，把「为什么可疑」「证据在哪」「怎么改」摊开在桌面上。检测不是终审，解释才是起点。</p>
+            <p className="hero-kicker">被 AI 检测判了？先把话说清楚</p>
+            <h1>被判「AI 写的」？<br />先别认，<br /><em>把话说明白。</em></h1>
+            <p className="hero-lead">逐句看清：它为什么觉得可疑、证据在哪、你怎么把它改回自己的文字。检测不是判决，解释权和改写权都在你手里。</p>
             <div className="hero-actions">
-              <a className="primary-button" href="#analyzer">开始分析我的原稿 <ArrowRight size={18} /></a>
-              <a className="ghost-link" href="#methodology">先看判分依据 <ArrowDown size={16} /></a>
+              <a className="primary-button" href="#analyzer">贴进来，看看它凭什么判你 <ArrowRight size={18} /></a>
+              <a className="ghost-link" href="#analyzer">先试一份样例 <ArrowDown size={16} /></a>
             </div>
             <ul className="hero-claims">
-              <li><Check size={16} /> 逐句证据 + 修改方向</li>
-              <li><Check size={16} /> 透明加权公式</li>
-              <li><Check size={16} /> 样本不足就拒判</li>
-              <li><Check size={16} /> 原稿不上传服务器</li>
+              <li><Check size={16} /> 每句都能点开看依据</li>
+              <li><Check size={16} /> 自己动手改，改完立刻看变化</li>
+              <li><Check size={16} /> 原稿不离开你的电脑</li>
             </ul>
           </div>
           <div className="hero-visual" aria-hidden="true">
@@ -94,7 +93,7 @@ export default function App() {
       <footer className="site-footer">
         <div className="footer-brand">
           <span className="brand-symbol">R<span>e</span></span>
-          <p><strong>ReAuthor · 重写权</strong><br />学生自己的 AI 写作特征诊断台。多通道交叉验证 + 公开校准数据，开源、可复核、不上传文本。</p>
+          <p><strong>ReAuthor · 重写权</strong><br />把「像不像 AI」的判决，拆成你看得懂的证据，再把修改权还给你。逐句讲理由、自己动手改、原稿不上传。</p>
         </div>
         <div className="footer-links">
           <a href="https://github.com/Jasper1-Coder/reauthor-writing-lab" target="_blank" rel="noreferrer"><Github size={17} /> 源码与评分常量</a>

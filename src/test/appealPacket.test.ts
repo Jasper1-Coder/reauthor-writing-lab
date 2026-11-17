@@ -246,7 +246,7 @@ describe('AC-4 · 一页纸卡片', () => {
 
     const card = kit.container.querySelector('.defense-onepager')!
     const text = card.textContent ?? ''
-    expect(text).toContain('给老师的一页纸 · 本案三条最强证据')
+    expect(text).toContain('给老师看的 3 条证据')
     expect(text).toContain(String(report.crossValidation.spread))
     expect(text).toContain(`${packet.crossDomain.calibratedScoreMin}–${packet.crossDomain.calibratedScoreMax}`)
     expect(text).toContain('检索通道覆盖率')

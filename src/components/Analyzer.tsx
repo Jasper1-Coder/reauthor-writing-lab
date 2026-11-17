@@ -23,7 +23,7 @@ interface AnalyzerProps {
   incomingText?: { text: string; nonce: number }
 }
 
-const stages = ['识别语言与切分句子', '计算五项文体特征', '定位证据与生成建议', '整理可导出诊断报告']
+const stages = ['读你的文章', '找出值得看的句子', '给出依据和修改方向', '生成报告']
 
 export function Analyzer({ onAnalyzed, onToast, incomingText }: AnalyzerProps) {
   const [text, setText] = useState('')
@@ -111,14 +111,14 @@ export function Analyzer({ onAnalyzed, onToast, incomingText }: AnalyzerProps) {
     <section className="analyzer-shell" id="analyzer" aria-labelledby="analyzer-title">
       <div className="section-index">
         <span>01</span>
-        <p>把原稿放上工作台面</p>
+        <p>贴进来，我们逐句看</p>
       </div>
       <div className="analyzer-heading">
         <div>
-          <p className="eyebrow">YOUR DRAFT, YOUR EVIDENCE</p>
-          <h2 id="analyzer-title">先读文本，再谈分数。</h2>
+          <p className="eyebrow">贴进来 · 逐句看 · 自己改</p>
+          <h2 id="analyzer-title">把文章贴进来，我们逐句看。</h2>
         </div>
-        <p>支持中文与英文课程作业、论文和学术文本。分析在浏览器中完成，原稿不会被上传或保存。</p>
+        <p>中文、英文的课程作业和论文都行。分析只在你的浏览器里完成，原稿不会被上传或保存。</p>
       </div>
 
       <div className="editor-frame">
@@ -187,7 +187,7 @@ export function Analyzer({ onAnalyzed, onToast, incomingText }: AnalyzerProps) {
           <textarea
             value={text}
             onChange={(event) => { setText(event.target.value); setSampleName('') }}
-            placeholder="在这里粘贴你的中文或英文原稿，或把 PDF / Word / PPT 文件直接拖进来……&#10;&#10;判定充分性只需满足其一：中文 ≥400 字，或英文 ≥180 词，另需 ≥6 个完整句子。中英混排的论文按各自语言分别计算。"
+            placeholder="把中文或英文文章粘贴到这里，或把 PDF / Word / PPT 文件直接拖进来……&#10;&#10;写得越完整，我们越能看清哪些句子值得你注意。"
             maxLength={50000}
             aria-label="待分析原稿"
             spellCheck="false"
@@ -222,7 +222,10 @@ export function Analyzer({ onAnalyzed, onToast, incomingText }: AnalyzerProps) {
         </div>
 
         {text.trim().length > 0 && text.trim().length < 40 && (
-          <p className="input-hint">至少输入 40 个字符；为了严谨，我们不分析一句话的“作者身份”。</p>
+          <p className="input-hint">再多写几句吧——我们不对孤零零的一句话下结论，那样看不出什么。</p>
+        )}
+        {text.trim().length >= 40 && (
+          <p className="input-hint input-hint-passive">小提示：中文写满 400 字或英文 180 词、至少 6 句话时，结论会更可靠；太少我们只会展示有限的观察，不轻易下判断。</p>
         )}
 
         {isAnalyzing && (
@@ -238,7 +241,7 @@ export function Analyzer({ onAnalyzed, onToast, incomingText }: AnalyzerProps) {
       </div>
 
       <div className="sample-row">
-        <span>没有原稿在手边？六份对照样本覆盖不同语言与风格：</span>
+        <span>还没准备好文章？点一份样例，先看看它怎么逐句分析：</span>
         <div>
           {SAMPLE_LIBRARY.map((sample) => (
             <button key={sample.id} type="button" onClick={() => loadSample(sample.id)}>

@@ -1,4 +1,4 @@
-import { ArrowUpRight, BookMarked, FlaskConical, Github, Scale, ShieldAlert, Swords } from 'lucide-react'
+import { ArrowUpRight, BookMarked, FlaskConical, Github, Scale, ShieldAlert, ShieldCheck, Swords } from 'lucide-react'
 import calibrationData from '../data/calibration.json'
 import redteamData from '../data/redteam.json'
 import modelData from '../data/calibratedModel.json'
@@ -17,15 +17,20 @@ export function Methodology() {
   return (
     <>
       <section className="methodology-section" id="methodology" aria-labelledby="method-title">
+        <div className="methodology-optin">
+          <ShieldCheck size={18} />
+          <span>这一页讲我们怎么算、哪里不靠谱——给想深挖的人。正常使用不用读，</span>
+          <a href="#analyzer">回到分析文章 <ArrowUpRight size={14} /></a>
+        </div>
         <div className="section-index">
           <span>03</span>
           <p>打开引擎盖，拒绝神秘百分比</p>
         </div>
         <div className="method-grid">
           <div className="method-lead">
-            <p className="eyebrow">OPEN METHODOLOGY</p>
+            <p className="eyebrow">原理说明 · 选读</p>
             <h2 id="method-title">严谨，不是把话说满。<br /><em>是把边界说清。</em></h2>
-            <p>Turnitin、ZeroGPT、Pangram 给了交互参照，但我们不复制它们的“判决式叙事”。本站做了四件它们不做的事：多条独立证据链交叉验证并公布分歧；在 HC3 中文公开数据集上，既如实公布手调规则接近随机的误判率，也训练出有留出折误差数据的校准模型；用可复核的大语料检索取代黑箱打分（零 AI 模型、最近邻原文可逐条核对）；把每个系数、训练协议和边界全部公开，任何人可复现。我们相信查重的本质是"与参照基座比对"，不是非得跑一个大模型。</p>
+            <p>为什么做这个站：检测网站给的都是百分比，学生却无从解释、无从修改。我们想证明——不靠黑箱，也能给你能核对的证据。所以下面把怎么算的、误差多大、哪里会失灵，全部公开。</p>
             <a className="text-link" href="https://github.com/Jasper1-Coder/reauthor-writing-lab" target="_blank" rel="noreferrer">查看完整源码与评分常量 <ArrowUpRight size={16} /></a>
           </div>
           <div className="method-principles">
@@ -35,7 +40,14 @@ export function Methodology() {
           </div>
         </div>
 
-        <div className="calibration-section" id="calibration">
+        <details className="method-fold" id="calibration">
+          <summary>
+            <span className="method-fold-kicker">01 · 自我校准</span>
+            <strong>我们公开测过自己的准确率，结果并不漂亮</strong>
+            <span className="method-fold-hint">在公开数据集上实测，AUC、误报率、漏报率全部原样公布 →</span>
+          </summary>
+          <div className="method-fold-body">
+          <div className="calibration-section">
           <div className="ledger-heading">
             <span>SELF-CALIBRATION · 自我校准</span>
             <h3>我们把自己当被告：引擎在公开数据集上的真实成绩。</h3>
@@ -97,8 +109,17 @@ export function Methodology() {
             </p>
           </div>
         </div>
+          </div>
+        </details>
 
-        <div className="calibration-section redteam-section" id="redteam">
+        <details className="method-fold" id="redteam">
+          <summary>
+            <span className="method-fold-kicker">02 · 对抗测试</span>
+            <strong>网上流传的「降 AI 率教程」，能不能骗过我们？我们替你试了</strong>
+            <span className="method-fold-hint">结论：一个复制粘贴的指令就能让分数暴跌——这恰恰说明百分比不可信 →</span>
+          </summary>
+          <div className="method-fold-body">
+          <div className="calibration-section redteam-section">
           <div className="ledger-heading">
             <span>RED TEAM · 对抗性测试</span>
             <h3>网上流传的"降AI指令"，能把我们的分数打掉多少？我们替你试了。</h3>
@@ -148,8 +169,17 @@ export function Methodology() {
             </p>
           </div>
         </div>
+          </div>
+        </details>
 
-        <div className="calibration-section calibrated-model-section" id="calibrated-model">
+        <details className="method-fold" id="calibrated-model">
+          <summary>
+            <span className="method-fold-kicker">03 · 校准模型</span>
+            <strong>从「接近随机」到 AUC 0.930：我们训练并检验了一个模型</strong>
+            <span className="method-fold-hint">5 折交叉验证、灵敏度特异度、8 个特征系数全部公开 →</span>
+          </summary>
+          <div className="method-fold-body">
+          <div className="calibration-section calibrated-model-section">
           <div className="ledger-heading">
             <span>CALIBRATED MODEL · 校准模型通道</span>
             <h3>从"承认接近随机"到"拿出 AUC {modelData.performance.crossValidatedAuc}"：我们把手调规则换成了受训练、受检验的模型。</h3>
@@ -208,8 +238,17 @@ export function Methodology() {
             </p>
           </div>
         </div>
+          </div>
+        </details>
 
-        <div className="calibration-section crossdomain-section" id="crossdomain">
+        <details className="method-fold" id="crossdomain">
+          <summary>
+            <span className="method-fold-kicker">04 · 跨域验证</span>
+            <strong>换成从没见过的学术文本，它露馅了，但没完全失灵</strong>
+            <span className="method-fold-hint">分数会塌陷——这是「换个领域就可能失效」的实证 →</span>
+          </summary>
+          <div className="method-fold-body">
+          <div className="calibration-section crossdomain-section">
           <div className="ledger-heading">
             <span>CROSS-DOMAIN · 跨域验证</span>
             <h3>把模型扔进它从没见过的学术文本——它露馅了，但没完全失灵。</h3>
@@ -273,8 +312,17 @@ export function Methodology() {
             </p>
           </div>
         </div>
+          </div>
+        </details>
 
-        <div className="calibration-section crossdomain-section retrieval-section" id="retrieval">
+        <details className="method-fold" id="retrieval">
+          <summary>
+            <span className="method-fold-kicker">05 · 语料检索</span>
+            <strong>不跑 AI 模型，靠比对真实语料也能给出可核对的信号</strong>
+            <span className="method-fold-hint">最近邻原文逐条可查，域名外会明显下降 →</span>
+          </summary>
+          <div className="method-fold-body">
+          <div className="calibration-section crossdomain-section retrieval-section">
           <div className="ledger-heading">
             <span>V0.7 · CORPUS RETRIEVAL · 语料检索</span>
             <h3>不跑 AI，也能有信号：把"AI 率"变成可核对的最近邻。</h3>
@@ -304,8 +352,17 @@ export function Methodology() {
             </article>
           </div>
         </div>
+          </div>
+        </details>
 
-        <div className="source-ledger">
+        <details className="method-fold" id="source-ledger">
+          <summary>
+            <span className="method-fold-kicker">06 · 研究底稿</span>
+            <strong>这些开源研究，构成了我们的底稿</strong>
+            <span className="method-fold-hint"> DetectGPT / GLTR / C-ReD 等，附 GitHub 链接 →</span>
+          </summary>
+          <div className="method-fold-body">
+          <div className="source-ledger">
           <div className="ledger-heading"><span>GITHUB RESEARCH LEDGER</span><h3>这些开源项目，构成了我们的研究底稿。</h3></div>
           <div className="source-list">
             {sources.map((source, index) => (
@@ -315,6 +372,8 @@ export function Methodology() {
             ))}
           </div>
         </div>
+          </div>
+        </details>
       </section>
 
       <section className="manifesto-section" id="manifesto">
